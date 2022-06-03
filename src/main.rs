@@ -59,7 +59,9 @@ impl App {
     /// Used to create an app
     fn new(name: String, version: String) -> Self {
         let db = Database::new();
-        Self{db, name, version}
+        let s = Self{db, name, version};
+        s.init_db();
+        s
     }
 
     /// References the name of this app
@@ -70,6 +72,23 @@ impl App {
     /// References the version of this app
     fn version(&self) -> &String {
         &self.version
+    }
+
+    fn init_db(&self) {
+        self.db.exec("
+        CREATE TABLE IF NOT EXISTS TodoLists(
+            todo_list_id  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL
+        );").unwrap();
+        self.db.exec("
+        CREATE TABLE IF NOT EXISTS Task(
+            task_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            todo_list_id INTEGER,
+            date_added DATETIME NOT NULL DEFAULT CURRENT_DATE,
+            date_completed DATETIME
+        );").unwrap();
     }
 }
 
