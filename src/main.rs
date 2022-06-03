@@ -41,8 +41,17 @@ impl Database {
     }
 
     /// Executes a query command into the database
-    fn exec(&mut self, statement: &str) -> Result<(), sqlite::Error> {
-        self.conn.execute(statement)
+    fn exec(&self, statement: &str) -> Result<(), sqlite::Error> {
+        self.connection().execute(statement)
+    }
+
+    /// Executes a select query and returns a cursor
+    fn select_query(&mut self, query: &str) -> Result<sqlite::Cursor, &str> {
+        if let Ok(res) = self.conn.prepare(query) {
+            Ok(res.into_cursor())
+        } else {
+            Err("Error executing the query!")
+        }
     }
 }
 
