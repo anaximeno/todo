@@ -78,8 +78,8 @@ impl App {
     /// if not already created.
     fn init_db(&self) {
         self.db.exec("
-        CREATE TABLE IF NOT EXISTS TodoLists(
-            todo_list_id  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        CREATE TABLE IF NOT EXISTS Todo(
+            todo_id  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             description TEXT NOT NULL
         );").unwrap();
@@ -87,9 +87,10 @@ impl App {
         CREATE TABLE IF NOT EXISTS Task(
             task_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
-            todo_list_id INTEGER,
+            todo_id INTEGER,
             date_added DATETIME NOT NULL DEFAULT CURRENT_DATE,
-            date_completed DATETIME
+            date_completed DATETIME,
+            FOREIGN KEY (todo_id) REFERENCES Todo(todo_id)
         );").unwrap();
     }
 }
