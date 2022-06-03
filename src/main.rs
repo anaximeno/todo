@@ -74,6 +74,8 @@ impl App {
         &self.version
     }
 
+    /// Initializes the sqlite database with the default relations,
+    /// if not already created.
     fn init_db(&self) {
         self.db.exec("
         CREATE TABLE IF NOT EXISTS TodoLists(
