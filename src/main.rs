@@ -6,6 +6,13 @@ struct Database {
     conn: Connection
 }
 
+/// Represents the todo application
+struct App {
+    db: Database,
+    version: String,
+    name: String
+}
+
 impl From<&str> for Database {
     /// Initializes the database from a given path
     fn from(path: &str) -> Self {
@@ -34,7 +41,25 @@ impl Database {
     }
 }
 
+impl App {
+    /// Used to create an app
+    fn new(name: String, version: String) -> Self {
+        let db = Database::new();
+        Self{db, name, version}
+    }
+
+    /// References the name of this app
+    fn name(&self) -> &String {
+        &self.name
+    }
+
+    /// References the version of this app
+    fn version(&self) -> &String {
+        &self.version
+    }
+}
+
 fn main() {
-    let db = Database::new();
-    println!("Connected db at '{}'", db.path());
+    let app = App::new("TodoApp".into(), "1.0.0".into());
+    println!("Just created the app {} at version {}", app.name(), app.version());
 }
