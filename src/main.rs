@@ -39,6 +39,11 @@ impl Database {
     fn connection(&self) -> &Connection {
         &self.conn
     }
+
+    /// Executes a query command into the database
+    fn exec(&mut self, statement: &str) -> Result<(), sqlite::Error> {
+        self.conn.execute(statement)
+    }
 }
 
 impl App {
