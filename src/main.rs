@@ -6,10 +6,18 @@ struct Database {
     conn: Connection
 }
 
-impl Database {
+impl From<&str> for Database {
     /// Get's a new instance of the struct
-    fn new(path: &str) -> Self {
+    fn from(path: &str) -> Self {
         let path = String::from(path);
+        let conn = Connection::open(&path).unwrap();
+        Self{path, conn}
+    }
+}
+
+impl Database {
+    fn new() -> Self {
+        let path = String::from(":memory:");
         let conn = Connection::open(&path).unwrap();
         Self{path, conn}
     }
@@ -26,6 +34,6 @@ impl Database {
 }
 
 fn main() {
-    let db = Database::new(":memory:");
+    let db = Database::new();
     println!("Connected db at '{}'", db.path());
 }
