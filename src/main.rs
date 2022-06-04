@@ -106,7 +106,7 @@ impl App {
 }
 
 fn main() {
-    let app = App::new("TodoApp".into(), "1.0.0".into());
+    let app = App::new("TodoApp".into(), "0.1.0".into());
     app.add_todo("Test", "Testing todo list");
     println!("Just created the app {} at version {}", app.name(), app.version());
 }
