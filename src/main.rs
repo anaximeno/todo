@@ -63,7 +63,17 @@ impl Database {
 impl App {
     /// Used to create an app
     fn new(name: &str, version: &str) -> Self {
-        let db = Database::from(":memory:");
+        let db = Database::new();
+        let name = String::from(name);
+        let version = String::from(version);
+        let this = Self{db, name, version};
+        this.init_db().expect("Error Initializing the DB!");
+        this
+    }
+
+    /// Creates an app with db set on a specific path
+    fn with_db_path(name: &str, version: &str, db_path: &str) -> Self {
+        let db = Database::from(db_path);
         let name = String::from(name);
         let version = String::from(version);
         let this = Self{db, name, version};
@@ -156,9 +166,11 @@ impl App {
 fn main() {
     let mut app = App::new("TodoApp", "0.1.0");
 
-    app.add_todo("test", "testing todo list").expect("Could not add a todo!");
-    app.add_task("first test adding new tasks", "test").expect("Could not add a task!");
-
+    app.add_todo("test", "testing todo list")
+       .expect("Could not add a todo!");
+    app.add_task("first test adding new tasks", "test")
+       .expect("Could not add a task!");
+       
     let todo = app.get_todo("test");
 
     println!("{:#?}", todo);
