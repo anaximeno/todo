@@ -1,9 +1,5 @@
 use sqlite::Connection;
-
-use todo::{
-    Todo,
-    IdIntType
-};
+use todo::*;
 
 /// Database handler for the aplication
 struct Database {
@@ -161,6 +157,32 @@ impl App {
         }
         Ok(())
     }
+
+    /// Returns a task of the database if found
+    fn get_task(&mut self, task_id: IdIntType) -> Option<Task> {
+        let query = format!("
+        SELECT
+            title, date_added, date_completed
+        FROM
+            Task
+        WHERE task_id = {}", task_id);
+        if let Ok(mut cursor) = self.db.select_query(&query) {
+            if let Some(value) = cursor.next().unwrap() {
+                let title = value[0].as_string().unwrap();
+                let date_added = value[1].as_string().unwrap();
+                let date_completed = value[2].as_string();
+                let status = match date_completed {
+                    Some(date) => Status::from(date),
+                    None => Status::Todo
+                };
+                Some(Task::with_status(task_id, title, date_added, status))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
 }
 
 fn main() {
@@ -171,7 +193,10 @@ fn main() {
     app.add_task("first test adding new tasks", "test")
        .expect("Could not add a task!");
        
-    let todo = app.get_todo("test");
+    let mut todo = app.get_todo("test").unwrap();
+    let task = app.get_task(1).unwrap();
 
+    todo.add_task(task).unwrap();
+    
     println!("{:#?}", todo);
 }
