@@ -1,5 +1,8 @@
-use std::error::Error;
-use std::fmt;
+use std::{
+    error::Error,
+    fmt,
+    collections::HashMap
+};
 
 #[cfg(test)]
 mod tests {
@@ -7,48 +10,50 @@ mod tests {
 
     #[test]
     fn test_task_creation() {
-        let task = Task::new(1, "This is a testing task.".to_string());
+        let task = Task::new(1, "This is a testing task.");
         assert_eq!(*task.id(), 1);
     }
 
     #[test]
     fn test_set_task_status() {
-        let mut task = Task::new(1, String::from("Think about pineapples."));
-        task.set_status(Status::Done(String::from("20-05-2022")));
+        let mut task = Task::new(1, "Think about pineapples.");
+        task.set_status(Status::Done("20-05-2022".into()));
         assert_eq!(*task.status(), "20-05-2022".into());
     }
 
     #[test]
     fn test_todo_creation() {
         let list_id = 4;
-        let list = Todo::new(list_id, String::from("Things"));
+        let list = Todo::new(list_id, "Things");
         assert_eq!(*list.id(), list_id);
     }
 
     #[test]
     #[should_panic]
     fn test_add_repeated_tasks() {
-        let mut list = Todo::new(1, "test".to_string());
+        let mut list = Todo::new(1, "test");
 
         let _res = list.add_task(
-            Task::new(1, "check err".to_string())
+            Task::new(1, "check err")
         ).unwrap();
 
         let _res = list.add_task(
-            Task::new(1, "raise err".to_string())
+            Task::new(1, "raise err")
         ).unwrap();
     }
 
     #[test]
     fn test_get_task_by_id_on_todo() {
-        let mut list = Todo::new(1, "test".to_string());
+        let mut list = Todo::new(1, "test");
         list.add_task(
-            Task::new(23, "Test this task".to_string())
+            Task::new(23, "Test this task")
         ).unwrap();
-        let task = list.get_task(23);
-        assert_ne!(task, None);
+        assert_ne!(list.get_task(23), None);
     }
 }
+
+/// The type of the id's used on the program.
+type IdIntType = u64;
 
 #[derive(Debug, PartialEq)]
 /// Used to define the current status of
@@ -59,23 +64,18 @@ pub enum Status {
     Todo,
 }
 
-impl From<&str> for Status {
-    fn from(date_completed: &str) -> Self {
-        Status::Done(String::from(date_completed))
+impl<T: AsRef<str>> From<T> for Status {
+    fn from(date_completed: T) -> Self {
+        Status::Done(String::from(date_completed.as_ref()))
     }
 }
 
-impl From<String> for Status {
-    fn from(date_completed: String) -> Self {
-        Status::Done(date_completed)
-    }
-}
 
 #[derive(Debug, PartialEq)]
 /// A task is something the user
 /// wants to do.
 pub struct Task {
-    id: u32,
+    task_id: IdIntType,
     title: String,
     date_added: Option<String>,
     status: Status
@@ -85,10 +85,10 @@ pub struct Task {
 /// Todo structure used to store
 /// a set of task to be done.
 pub struct Todo {
-    id:           u32,
-    name:         String,
-    description:  Option<String>,
-    tasklist:     Vec<Task>,
+    todo_id: IdIntType,
+    name: String,
+    description: Option<String>,
+    tasks: HashMap<IdIntType, Task>
 }
 
 #[derive(Debug)]
@@ -98,9 +98,19 @@ pub struct TaskInsertionErr {
     details: String
 }
 
+#[allow(unused)]
 impl TaskInsertionErr {
-    fn from(msg: String) -> Self {
-        Self{details: msg}
+    
+    fn new() -> Self {
+        Self{details: "Task id was inserted more than once!".into()}
+    }
+
+    fn with_task_id(task_id: &IdIntType) -> Self {
+        Self{details: format!("Task id {} was inserted more than once!", task_id)}
+    }
+
+    fn with_details(details: &str) -> Self {
+        Self{details: details.into()}
     }
 }
 
@@ -119,18 +129,23 @@ impl Error for TaskInsertionErr {
 impl Task {
     /// Creates a new task by determining the id and the title,
     /// others fields are set to default.
-    pub fn new(id: u32, title: String) -> Self {
-        Self{id, title, date_added: None, status: Status::Todo}
+    pub fn new(task_id: IdIntType, title: &str) -> Self {
+        let title = String::from(title);
+        Self{task_id, title, date_added: None, status: Status::Todo}
     }
 
     /// Creates a new task with description.
-    pub fn with_date(id: u32, title: String, date_added: String) -> Self {
-        Self{id, title, date_added: Some(date_added), status: Status::Todo}
+    pub fn with_date(task_id: IdIntType, title: &str, date_added: &str) -> Self {
+        let title = String::from(title);
+        let date_added = String::from(date_added);
+        Self{task_id, title, date_added: Some(date_added), status: Status::Todo}
     }
 
     /// Creates a new task with a pre-defined status.
-    pub fn with_status(id: u32, title: String, date_added: String, status: Status) -> Self {
-        Self{id, title, date_added: Some(date_added), status}
+    pub fn with_status(task_id: IdIntType, title: &str, date_added: &str, status: Status) -> Self {
+        let title = String::from(title);
+        let date_added = String::from(date_added);
+        Self{task_id, title, date_added: Some(date_added), status}
     }
 
     /// Sets the task status to a new one.
@@ -148,22 +163,22 @@ impl Task {
         self.title = title;
     }
 
-    /// Returns the task's id.
-    pub fn id(&self) -> &u32 {
-        &self.id
+    /// References the task's id.
+    pub fn id(&self) -> &IdIntType {
+        &self.task_id
     }
     
-    /// Returns a reference to the date the task was added.
+    /// References the date the task was added.
     pub fn date_added(&self) -> &Option<String> {
         &self.date_added
     }
 
-    /// Returns a reference to the task's status.
+    /// Reference the status of the task.
     pub fn status(&self) -> &Status {
         &self.status
     }
 
-    /// Returns a reference to the task's title.
+    /// References the title of the task.
     pub fn title(&self) -> &String {
         &self.title
     }
@@ -171,13 +186,16 @@ impl Task {
 
 impl Todo {
     /// Creates a new list using its id and name
-    pub fn new(id: u32, name: String) -> Self {
-        Self{id, name, description: None, tasklist: Vec::new()}
+    pub fn new(todo_id: IdIntType, name: &str) -> Self {
+        let name = String::from(name);
+        Self{todo_id, name, description: None, tasks: HashMap::new()}
     }
     
     /// Creates a new list with description
-    pub fn with_description(id: u32, name: String, desc: String) -> Self {
-        Self{id, name, description: Some(desc), tasklist: Vec::new()}
+    pub fn with_description(todo_id: IdIntType, name: &str, desc: &str) -> Self {
+        let name = String::from(name);
+        let desc = String::from(desc);
+        Self{todo_id, name, description: Some(desc), tasks: HashMap::new()}
     }
     
     /// Sets a new value to the name.
@@ -190,52 +208,38 @@ impl Todo {
         self.description = Some(desc);
     }
 
-    /// Returns a reference to the id.
-    pub fn id(&self) -> &u32 {
-        &self.id
+    /// Reference the id.
+    pub fn id(&self) -> &IdIntType {
+        &self.todo_id
     }
     
-    /// Returns a reference to the name.
+    /// References the name.
     pub fn name(&self) -> &String {
         &self.name
     }
     
-    /// Returns a reference to the description.
+    /// References the description.
     pub fn description(&self) -> &Option<String> {
         &self.description
     }
 
     /// Adds a new task to the tasklist.
     pub fn add_task(&mut self, task: Task) -> Result<(), TaskInsertionErr> {
-        match self.get_task(*task.id()) {
-            Some(_) => {
-                let msg = format!(
-                    "Task id {} has already been inserted into the list!",
-                    task.id()
-                );
-                Err(TaskInsertionErr::from(msg))
-            },
-            None => {
-                self.tasklist.push(task);
-                Ok(())
-            }
+        if self.tasks.contains_key(task.id()) {
+            Err(TaskInsertionErr::with_task_id(task.id()))
+        } else {
+            self.tasks.insert(*task.id(), task);
+            Ok(())
         }
     }
 
-    /// Returns the task's index
-    fn get_task_index(&self, taskid: u32) -> Option<usize> {
-        self.tasklist.iter().position(|t| *t.id() == taskid)
-    }
-
     /// Gets the task by searching for its ID on the tasklist
-    pub fn get_task(&self, taskid: u32) -> Option<&Task> {
-        let index = self.get_task_index(taskid);
-        if let Some(idx) = index { self.tasklist.get(idx) } else { None }
+    pub fn get_task(&self, taskid: IdIntType) -> Option<&Task> {
+        self.tasks.get(&taskid)
     }
 
     /// Gets the task by id, returning a mutable reference
-    pub fn get_task_mut(&mut self, taskid: u32) -> Option<&mut Task> {
-        let index = self.get_task_index(taskid);
-        if let Some(idx) = index { self.tasklist.get_mut(idx) } else { None }
+    pub fn get_task_mut(&mut self, taskid: IdIntType) -> Option<&mut Task> {
+        self.tasks.get_mut(&taskid)
     }
 }
