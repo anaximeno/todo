@@ -53,7 +53,7 @@ mod tests {
 }
 
 /// The type of the id's used on the program.
-type IdIntType = u64;
+pub type IdIntType = u64;
 
 #[derive(Debug, PartialEq)]
 /// Used to define the current status of
