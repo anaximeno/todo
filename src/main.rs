@@ -135,12 +135,29 @@ impl App {
             None
         }
     }
+
+    /// Add a new task to the database
+    fn add_task(&mut self, task_title: &str, todo_name: &str) -> Result<(), sqlite::Error> {
+        if let Some(todo) = self.get_todo(todo_name) {
+            let statement = format!("
+            INSERT INTO
+                Task(title, todo_id)
+            VALUES
+                ('{}', {})", task_title, todo.id());
+            self.db.exec(&statement) ? ;
+        } else {
+            self.add_todo(todo_name, "") ? ;
+            self.add_task(task_title, todo_name) ? ;
+        }
+        Ok(())
+    }
 }
 
 fn main() {
     let mut app = App::new("TodoApp", "0.1.0");
 
-    app.add_todo("test", "testing todo list").expect("Could not add todo");
+    app.add_todo("test", "testing todo list").expect("Could not add a todo!");
+    app.add_task("first test adding new tasks", "test").expect("Could not add a task!");
 
     let todo = app.get_todo("test");
 
