@@ -1,5 +1,10 @@
 use sqlite::Connection;
 
+use todo::{
+    Todo,
+    IdIntType
+};
+
 /// Database handler for the aplication
 struct Database {
     path: String,
@@ -58,7 +63,7 @@ impl Database {
 impl App {
     /// Used to create an app
     fn new(name: String, version: String) -> Self {
-        let db = Database::from("test.sql");
+        let db = Database::from(":memory:");
         let s = Self{db, name, version};
         s.init_db();
         s
@@ -103,10 +108,37 @@ impl App {
             ('{}', '{}')", name, description);
         self.db.exec(&statement).unwrap();
     }
+
+    /// Queries and returns if found a todo from the
+    /// database using the name.
+    fn get_todo(&mut self, name: &str) -> Option<Todo> {
+        let query = format!("
+        SELECT
+            todo_id, description
+        FROM
+            Todo
+        WHERE
+            name = '{}'", name);
+        if let Ok(mut cursor) = self.db.select_query(&query) {
+            if let Some(value) = cursor.next().unwrap() {
+                let todo_id = value[0].as_integer().unwrap();
+                let description = value[1].as_string().unwrap();
+                Some(Todo::with_description(todo_id as IdIntType, name, description))
+            } else {
+                None
+            } 
+        } else {
+            None
+        }
+    }
 }
 
 fn main() {
-    let app = App::new("TodoApp".into(), "0.1.0".into());
-    app.add_todo("Test", "Testing todo list");
-    println!("Just created the app {} at version {}", app.name(), app.version());
+    let mut app = App::new("TodoApp".into(), "0.1.0".into());
+
+    app.add_todo("test", "testing todo list");
+
+    let todo = app.get_todo("test");
+
+    println!("{:#?}", todo);
 }
