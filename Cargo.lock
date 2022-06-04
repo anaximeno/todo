@@ -56,7 +56,3 @@ version = "0.1.0"
 dependencies = [
  "sqlite",
 ]
-
-[[package]]
-name = "todo_lib"
-version = "0.1.0"
