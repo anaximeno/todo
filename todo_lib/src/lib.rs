@@ -7,6 +7,13 @@ mod tests {
         let task = Task::new(1, "This is a testing task.".to_string());
         assert_eq!(*task.id(), 1);
     }
+
+    #[test]
+    fn test_set_task_status() {
+        let mut task = Task::new(1, String::from("Think about pineapples."));
+        task.set_status(Status::Done(String::from("20-05-2022")));
+        assert_eq!(*task.status(), "20-05-2022".into());
+    }
 }
 
 #[derive(Debug, PartialEq)]
