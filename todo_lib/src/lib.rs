@@ -37,3 +37,13 @@ pub struct Task {
     date_added: Option<String>,
     status: Status
 }
+
+#[derive(Debug, PartialEq)]
+/// Todo structure used to store
+/// a set of task to be done.
+pub struct Todo {
+    id:           u32,
+    name:         String,
+    description:  Option<String>,
+    tasklist:     Vec<Task>,
+}
