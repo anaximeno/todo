@@ -58,7 +58,7 @@ impl Database {
 impl App {
     /// Used to create an app
     fn new(name: String, version: String) -> Self {
-        let db = Database::new();
+        let db = Database::from("test.sql");
         let s = Self{db, name, version};
         s.init_db();
         s
@@ -93,9 +93,20 @@ impl App {
             FOREIGN KEY (todo_id) REFERENCES Todo(todo_id)
         );").unwrap();
     }
+
+    /// Add a new todo to the database
+    fn add_todo(&self, name: &str, description: &str) {
+        let statement = format!("
+        INSERT INTO
+            Todo(name, description)
+        VALUES
+            ('{}', '{}')", name, description);
+        self.db.exec(&statement).unwrap();
+    }
 }
 
 fn main() {
     let app = App::new("TodoApp".into(), "1.0.0".into());
+    app.add_todo("Test", "Testing todo list");
     println!("Just created the app {} at version {}", app.name(), app.version());
 }
