@@ -91,19 +91,28 @@ impl App {
     /// if not already created.
     fn init_db(&self) -> Result<(), sqlite::Error> {
         self.db.exec("
-        CREATE TABLE IF NOT EXISTS Todo(
-            todo_id  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        CREATE TABLE IF NOT EXISTS Todos(
+            todo_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             description TEXT NOT NULL
         );") ? ;
         self.db.exec("
-        CREATE TABLE IF NOT EXISTS Task(
+        CREATE TABLE IF NOT EXISTS Tasks(
             task_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            todo_id INTEGER,
+            instruction TEXT NOT NULL,
+            todo_id INTEGER NOT NULL,
             date_added DATETIME NOT NULL DEFAULT CURRENT_DATE,
             date_completed DATETIME,
-            FOREIGN KEY (todo_id) REFERENCES Todo(todo_id)
+            FOREIGN KEY (todo_id) REFERENCES Todos(todo_id)
+        );") ? ;
+        self.db.exec("
+        CREATE TABLE IF NOT EXISTS TaskOrder(
+            todo_id INTEGER NOT NULL,
+            task_id INTEGER NOT NULL,
+            task_order INTEGER NOT NULL,
+            FOREIGN KEY (todo_id) REFERENCES Todos(todo_id),
+            FOREIGN KEY (task_id) REFERENCES Tasks(task_id),
+            PRIMARY KEY (todo_id, task_id, task_order)
         );") ? ;
         Ok(())
     }
@@ -112,7 +121,7 @@ impl App {
     fn add_todo(&self, name: &str, description: &str) -> Result<(), sqlite::Error> {
         let statement = format!("
         INSERT INTO
-            Todo(name, description)
+            Todos(name, description)
         VALUES
             ('{}', '{}')", name, description);
         self.db.exec(&statement) ? ;
@@ -126,7 +135,7 @@ impl App {
         SELECT
             todo_id, description
         FROM
-            Todo
+            Todos
         WHERE
             name = '{}'", name);
         if let Ok(mut cursor) = self.db.select_query(&query) {
@@ -143,17 +152,17 @@ impl App {
     }
 
     /// Add a new task to the database
-    fn add_task(&mut self, task_title: &str, todo_name: &str) -> Result<(), sqlite::Error> {
+    fn add_task(&mut self, instruction: &str, todo_name: &str) -> Result<(), sqlite::Error> {
         if let Some(todo) = self.get_todo(todo_name) {
             let statement = format!("
             INSERT INTO
-                Task(title, todo_id)
+                Tasks(instruction, todo_id)
             VALUES
-                ('{}', {})", task_title, todo.id());
+                ('{}', {})", instruction, todo.id());
             self.db.exec(&statement) ? ;
         } else {
             self.add_todo(todo_name, "") ? ;
-            self.add_task(task_title, todo_name) ? ;
+            self.add_task(instruction, todo_name) ? ;
         }
         Ok(())
     }
@@ -162,20 +171,20 @@ impl App {
     fn get_task(&mut self, task_id: IdIntType) -> Option<Task> {
         let query = format!("
         SELECT
-            title, date_added, date_completed
+            instruction, date_added, date_completed
         FROM
-            Task
+            Tasks
         WHERE task_id = {}", task_id);
         if let Ok(mut cursor) = self.db.select_query(&query) {
             if let Some(value) = cursor.next().unwrap() {
-                let title = value[0].as_string().unwrap();
+                let instruction = value[0].as_string().unwrap();
                 let date_added = value[1].as_string().unwrap();
                 let date_completed = value[2].as_string();
                 let status = match date_completed {
                     Some(date) => Status::from(date),
                     None => Status::Todo
                 };
-                Some(Task::with_status(task_id, title, date_added, status))
+                Some(Task::with_status(task_id, instruction, date_added, status))
             } else {
                 None
             }
