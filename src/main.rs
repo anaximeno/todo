@@ -67,7 +67,7 @@ impl App {
         let name = String::from(name);
         let version = String::from(version);
         let this = Self{db, name, version};
-        this.init_db();
+        this.init_db().expect("Error Initializing the DB!");
         this
     }
 
@@ -83,13 +83,13 @@ impl App {
 
     /// Initializes the sqlite database with the default relations,
     /// if not already created.
-    fn init_db(&self) {
+    fn init_db(&self) -> Result<(), sqlite::Error> {
         self.db.exec("
         CREATE TABLE IF NOT EXISTS Todo(
             todo_id  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             description TEXT NOT NULL
-        );").unwrap();
+        );") ? ;
         self.db.exec("
         CREATE TABLE IF NOT EXISTS Task(
             task_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -98,17 +98,19 @@ impl App {
             date_added DATETIME NOT NULL DEFAULT CURRENT_DATE,
             date_completed DATETIME,
             FOREIGN KEY (todo_id) REFERENCES Todo(todo_id)
-        );").unwrap();
+        );") ? ;
+        Ok(())
     }
 
     /// Add a new todo to the database
-    fn add_todo(&self, name: &str, description: &str) {
+    fn add_todo(&self, name: &str, description: &str) -> Result<(), sqlite::Error> {
         let statement = format!("
         INSERT INTO
             Todo(name, description)
         VALUES
             ('{}', '{}')", name, description);
-        self.db.exec(&statement).unwrap();
+        self.db.exec(&statement) ? ;
+        Ok(())
     }
 
     /// Queries and returns if found a todo from the
@@ -138,7 +140,7 @@ impl App {
 fn main() {
     let mut app = App::new("TodoApp", "0.1.0");
 
-    app.add_todo("test", "testing todo list");
+    app.add_todo("test", "testing todo list").expect("Could not add todo");
 
     let todo = app.get_todo("test");
 
