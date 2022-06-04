@@ -1,7 +1,6 @@
 use std::{
     error::Error,
-    fmt,
-    collections::HashMap
+    fmt
 };
 
 #[cfg(test)]
@@ -88,7 +87,7 @@ pub struct Todo {
     todo_id: IdIntType,
     name: String,
     description: Option<String>,
-    tasks: HashMap<IdIntType, Task>
+    tasks: Vec<Task>
 }
 
 #[derive(Debug)]
@@ -188,14 +187,14 @@ impl Todo {
     /// Creates a new list using its id and name
     pub fn new(todo_id: IdIntType, name: &str) -> Self {
         let name = String::from(name);
-        Self{todo_id, name, description: None, tasks: HashMap::new()}
+        Self{todo_id, name, description: None, tasks: Vec::new()}
     }
     
     /// Creates a new list with description
     pub fn with_description(todo_id: IdIntType, name: &str, desc: &str) -> Self {
         let name = String::from(name);
         let desc = String::from(desc);
-        Self{todo_id, name, description: Some(desc), tasks: HashMap::new()}
+        Self{todo_id, name, description: Some(desc), tasks: Vec::new()}
     }
     
     /// Sets a new value to the name.
@@ -225,21 +224,28 @@ impl Todo {
 
     /// Adds a new task to the tasklist.
     pub fn add_task(&mut self, task: Task) -> Result<(), TaskInsertionErr> {
-        if self.tasks.contains_key(task.id()) {
+        if let Some(_) = self.get_task_index(*task.id()) {
             Err(TaskInsertionErr::with_task_id(task.id()))
         } else {
-            self.tasks.insert(*task.id(), task);
+            self.tasks.push(task);
             Ok(())
         }
     }
 
-    /// Gets the task by searching for its ID on the tasklist
+    /// Returns the task's index
+    fn get_task_index(&self, taskid: IdIntType) -> Option<usize> {
+        self.tasks.iter().position(|t| *t.id() == taskid)
+    }
+
+    /// Gets the task by searching for its ID on the task's list
     pub fn get_task(&self, taskid: IdIntType) -> Option<&Task> {
-        self.tasks.get(&taskid)
+        let index = self.get_task_index(taskid);
+        if let Some(idx) = index { self.tasks.get(idx) } else { None }
     }
 
     /// Gets the task by id, returning a mutable reference
     pub fn get_task_mut(&mut self, taskid: IdIntType) -> Option<&mut Task> {
-        self.tasks.get_mut(&taskid)
+        let index = self.get_task_index(taskid);
+        if let Some(idx) = index { self.tasks.get_mut(idx) } else { None }
     }
 }
