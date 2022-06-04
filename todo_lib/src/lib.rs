@@ -1,3 +1,6 @@
+use std::error::Error;
+use std::fmt;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -55,6 +58,31 @@ pub struct Todo {
     name:         String,
     description:  Option<String>,
     tasklist:     Vec<Task>,
+}
+
+#[derive(Debug)]
+/// This error may be returned if one task is inserted
+/// more than one time (repeating taskid) on the list.
+pub struct TaskInsertionErr {
+    details: String
+}
+
+impl TaskInsertionErr {
+    fn from(msg: String) -> Self {
+        Self{details: msg}
+    }
+}
+
+impl fmt::Display for TaskInsertionErr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.details)
+    }
+}
+
+impl Error for TaskInsertionErr {
+    fn description(&self) -> &str {
+        &self.details
+    }
 }
 
 impl Task {
