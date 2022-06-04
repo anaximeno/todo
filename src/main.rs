@@ -62,11 +62,13 @@ impl Database {
 
 impl App {
     /// Used to create an app
-    fn new(name: String, version: String) -> Self {
+    fn new(name: &str, version: &str) -> Self {
         let db = Database::from(":memory:");
-        let s = Self{db, name, version};
-        s.init_db();
-        s
+        let name = String::from(name);
+        let version = String::from(version);
+        let this = Self{db, name, version};
+        this.init_db();
+        this
     }
 
     /// References the name of this app
@@ -134,7 +136,7 @@ impl App {
 }
 
 fn main() {
-    let mut app = App::new("TodoApp".into(), "0.1.0".into());
+    let mut app = App::new("TodoApp", "0.1.0");
 
     app.add_todo("test", "testing todo list");
 
