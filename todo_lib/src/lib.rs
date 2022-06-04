@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
+    fn test_task_creation() {
+        let task = Task::new(1, "This is a testing task.".to_string());
+        assert_eq!(*task.id(), 1);
     }
 }
 
