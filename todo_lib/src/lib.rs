@@ -17,6 +17,37 @@ mod tests {
         task.set_status(Status::Done(String::from("20-05-2022")));
         assert_eq!(*task.status(), "20-05-2022".into());
     }
+
+    #[test]
+    fn test_todo_creation() {
+        let list_id = 4;
+        let list = Todo::new(list_id, String::from("Things"));
+        assert_eq!(*list.id(), list_id);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_add_repeated_tasks() {
+        let mut list = Todo::new(1, "test".to_string());
+
+        let _res = list.add_task(
+            Task::new(1, "check err".to_string())
+        ).unwrap();
+
+        let _res = list.add_task(
+            Task::new(1, "raise err".to_string())
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_get_task_by_id_on_todo() {
+        let mut list = Todo::new(1, "test".to_string());
+        list.add_task(
+            Task::new(23, "Test this task".to_string())
+        ).unwrap();
+        let task = list.get_task(23);
+        assert_ne!(task, None);
+    }
 }
 
 #[derive(Debug, PartialEq)]
