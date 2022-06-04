@@ -76,7 +76,7 @@ impl<T: AsRef<str>> From<T> for Status {
 /// wants to do.
 pub struct Task {
     task_id: IdIntType,
-    title: String,
+    instruction: String,
     date_added: Option<String>,
     status: Status
 }
@@ -127,25 +127,25 @@ impl Error for TaskInsertionErr {
 }
 
 impl Task {
-    /// Creates a new task by determining the id and the title,
+    /// Creates a new task by determining the id and the instruction,
     /// others fields are set to default.
-    pub fn new(task_id: IdIntType, title: &str) -> Self {
-        let title = String::from(title);
-        Self{task_id, title, date_added: None, status: Status::Todo}
+    pub fn new(task_id: IdIntType, instruction: &str) -> Self {
+        let instruction = String::from(instruction);
+        Self{task_id, instruction, date_added: None, status: Status::Todo}
     }
 
     /// Creates a new task with description.
-    pub fn with_date(task_id: IdIntType, title: &str, date_added: &str) -> Self {
-        let title = String::from(title);
+    pub fn with_date(task_id: IdIntType, instruction: &str, date_added: &str) -> Self {
+        let instruction = String::from(instruction);
         let date_added = String::from(date_added);
-        Self{task_id, title, date_added: Some(date_added), status: Status::Todo}
+        Self{task_id, instruction, date_added: Some(date_added), status: Status::Todo}
     }
 
     /// Creates a new task with a pre-defined status.
-    pub fn with_status(task_id: IdIntType, title: &str, date_added: &str, status: Status) -> Self {
-        let title = String::from(title);
+    pub fn with_status(task_id: IdIntType, instruction: &str, date_added: &str, status: Status) -> Self {
+        let instruction = String::from(instruction);
         let date_added = String::from(date_added);
-        Self{task_id, title, date_added: Some(date_added), status}
+        Self{task_id, instruction, date_added: Some(date_added), status}
     }
 
     /// Sets the task status to a new one.
@@ -158,9 +158,9 @@ impl Task {
         self.date_added = Some(date);
     }
 
-    /// Sets a new title to the task.
-    pub fn set_title(&mut self, title: String) {
-        self.title = title;
+    /// Sets a new instruction to the task.
+    pub fn set_instruction(&mut self, instruction: String) {
+        self.instruction = instruction;
     }
 
     /// References the task's id.
@@ -178,9 +178,9 @@ impl Task {
         &self.status
     }
 
-    /// References the title of the task.
-    pub fn title(&self) -> &String {
-        &self.title
+    /// References the instruction of the task.
+    pub fn instruction(&self) -> &String {
+        &self.instruction
     }
 }
 
