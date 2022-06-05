@@ -112,7 +112,7 @@ impl App {
             task_order INTEGER NOT NULL,
             FOREIGN KEY (todo_id) REFERENCES Todos(todo_id),
             FOREIGN KEY (task_id) REFERENCES Tasks(task_id),
-            PRIMARY KEY (todo_id, task_id, task_order)
+            PRIMARY KEY (todo_id, task_id)
         );") ? ;
         Ok(())
     }
