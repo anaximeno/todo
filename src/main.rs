@@ -33,11 +33,18 @@ mod test {
     }
 
     #[test]
-    fn test_add_and_get_a_task() {
+    fn test_add_and_get_a_task_by_id() {
+        let mut app = App::new("test-app", "0.0.1");
+        app.add_task("check", "test-todo").unwrap();
+        assert_eq!(app.get_task_by_id(1).unwrap().task(), "check");
+    }
+
+    #[test]
+    fn test_add_and_get_a_task_by_order() {
         let mut app = App::new("test-app", "0.0.1");
         app.add_todo("test-todo", "test use of tasks").unwrap();
-        app.add_task("check if this todo is working", "test-todo").unwrap();
-        assert_ne!(app.get_task_by_id(1), None);
+        app.add_task("check", "test-todo").unwrap();
+        assert_eq!(app.get_task_by_order(1, "test-todo").unwrap().task(), "check");
     }
 }
 
@@ -251,6 +258,28 @@ impl App {
                     task_id, task[0].as_string().unwrap(),
                     task[1].as_string().unwrap(),
                     task[2].as_string());
+                Some(task)    
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn get_task_by_order(&mut self, task_order: usize, todo_name: &str) -> Option<Task> {
+        let result = self.db.select_query(&format!(
+            "SELECT t.task_id, task, date_added, date_completed FROM Tasks t INNER JOIN
+            TaskOrder USING (todo_id, task_id) WHERE
+            todo_id = (SELECT todo_id FROM Todos WHERE name = '{}') AND
+            task_order = {};", todo_name, task_order));
+        if let Ok(mut cursor) = result {
+            if let Some(task) = cursor.next().unwrap() {
+                let task = create_task(
+                    task[0].as_integer().unwrap() as IdIntType,
+                    task[1].as_string().unwrap(),
+                    task[2].as_string().unwrap(),
+                    task[3].as_string());
                 Some(task)    
             } else {
                 None
