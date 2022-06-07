@@ -139,7 +139,7 @@ impl App {
         self.db.exec("
         CREATE TABLE IF NOT EXISTS Tasks(
             task_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-            instruction TEXT NOT NULL,
+            task TEXT NOT NULL,
             todo_id INTEGER NOT NULL,
             date_added DATETIME NOT NULL DEFAULT CURRENT_DATE,
             date_completed DATETIME,
@@ -192,17 +192,17 @@ impl App {
     }
 
     /// Add a new task to the database
-    fn add_task(&mut self, instruction: &str, todo_name: &str) -> Result<(), sqlite::Error> {
+    fn add_task(&mut self, task: &str, todo_name: &str) -> Result<(), sqlite::Error> {
         if let Some(todo) = self.get_todo(todo_name) {
             let statement = format!("
             INSERT INTO
-                Tasks(instruction, todo_id)
+                Tasks(task, todo_id)
             VALUES
-                ('{}', {})", instruction, todo.id());
+                ('{}', {})", task, todo.id());
             self.db.exec(&statement) ? ;
         } else {
             self.add_todo(todo_name, "") ? ;
-            self.add_task(instruction, todo_name) ? ;
+            self.add_task(task, todo_name) ? ;
         }
         Ok(())
     }
@@ -213,7 +213,7 @@ impl App {
     fn get_task(&mut self, task_id: IdIntType) -> Option<Task> {
         let query = format!("
         SELECT
-            instruction, date_added, date_completed
+            task, date_added, date_completed
         FROM
             Tasks
         WHERE task_id = {}", task_id);
@@ -234,12 +234,12 @@ impl App {
 }
 
 /// Gets the data from the query and creates a task
-fn create_task(task_id: IdIntType, instruction: &str, date_added: &str, date_completed: Option<&str>) -> Task {
+fn create_task(task_id: IdIntType, task: &str, date_added: &str, date_completed: Option<&str>) -> Task {
     let status = match date_completed {
         Some(date) => Status::from(date),
         None => Status::Todo
     };
-    Task::with_status(task_id, instruction, date_added, status)
+    Task::with_status(task_id, task, date_added, status)
 }
 
 fn main() {
