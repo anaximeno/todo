@@ -195,12 +195,41 @@ impl App {
     /// Add a new task to the database
     fn add_task(&mut self, task: &str, todo_name: &str) -> Result<(), sqlite::Error> {
         if let Some(todo) = self.get_todo(todo_name) {
-            let statement = format!("
-            INSERT INTO
-                Tasks(task, todo_id)
-            VALUES
-                ('{}', {})", task, todo.id());
-            self.db.exec(&statement) ? ;
+            self.db.exec(&format!(
+                "INSERT INTO Tasks(task, todo_id) VALUES ('{}', {})",
+                task, todo.id())
+            ) ? ;
+
+            let task_id_query = format!("SELECT task_id FROM Tasks WHERE task = '{}'", task);
+
+            let task_id_query_result = match self.db.select_query(&task_id_query) {
+                Ok(mut cursor) => {
+                    cursor.next().unwrap().map(|r| {r[0].as_integer().unwrap() as IdIntType})
+                },
+                Err(_) => None
+            };
+
+            let task_id = task_id_query_result.unwrap();
+            
+            let task_order_query = format!(
+                "SELECT MAX(task_order) FROM TaskOrder WHERE todo_id = {}",
+                todo.id()
+            );
+
+
+            let task_order_query_result = match self.db.select_query(&task_order_query) {
+                Ok(mut cursor) => {
+                    cursor.next().unwrap().map(|r| {r[0].as_integer().unwrap_or(1) as IdIntType})
+                },
+                Err(_) => None
+            };
+            
+            let task_order = task_order_query_result.unwrap() + 1;
+            
+            self.db.exec(&format!(
+                "INSERT INTO TaskOrder(todo_id, task_id, task_order) VALUES ({}, {}, {})",
+                todo.id(), task_id, task_order)
+            ) ? ;
         } else {
             self.add_todo(todo_name, "") ? ;
             self.add_task(task, todo_name) ? ;
