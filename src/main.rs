@@ -31,6 +31,14 @@ mod test {
         app.add_todo("test", "this a test todo!").unwrap();
         assert_ne!(app.get_todo("test"), None);
     }
+
+    #[test]
+    fn test_add_and_get_a_task() {
+        let mut app = App::new("test-app", "0.0.1");
+        app.add_todo("test-todo", "test use of tasks").unwrap();
+        app.add_task("check if this todo is working", "test-todo").unwrap();
+        assert_ne!(app.get_task(1), None);
+    }
 }
 
 /// Database handler for the aplication
