@@ -167,26 +167,20 @@ impl App {
 
     /// Add a new todo to the database
     fn add_todo(&self, name: &str, description: &str) -> Result<(), sqlite::Error> {
-        let statement = format!("
-        INSERT INTO
-            Todos(name, description)
-        VALUES
-            ('{}', '{}')", name, description);
-        self.db.exec(&statement) ? ;
+        self.db.exec(&format!(
+            "INSERT INTO Todos(name, description)
+             VALUES ('{}', '{}')", name, description)
+        ) ? ;
         Ok(())
     }
 
     /// Queries and returns if found a todo from the
     /// database using the name.
     fn get_todo(&mut self, name: &str) -> Option<Todo> {
-        let query = format!("
-        SELECT
-            todo_id, description
-        FROM
-            Todos
-        WHERE
-            name = '{}'", name);
-        if let Ok(mut cursor) = self.db.select_query(&query) {
+        let result = self.db.select_query(&format!(
+            "SELECT todo_id, description FROM
+             Todos WHERE name = '{}'", name));
+        if let Ok(mut cursor) = result {
             if let Some(value) = cursor.next().unwrap() {
                 let todo_id = value[0].as_integer().unwrap();
                 let description = value[1].as_string().unwrap();
@@ -209,29 +203,17 @@ impl App {
 
             let task_id_query = format!("SELECT task_id FROM Tasks WHERE task = '{}'", task);
 
-            let task_id_query_result = match self.db.select_query(&task_id_query) {
-                Ok(mut cursor) => {
-                    cursor.next().unwrap().map(|r| {r[0].as_integer().unwrap() as IdIntType})
-                },
-                Err(_) => None
-            };
-
-            let task_id = task_id_query_result.unwrap();
+            let task_id = self.db.select_query(&task_id_query).ok().map(|mut cursor| {
+                cursor.next().unwrap().map(|r| {r[0].as_integer().unwrap() as IdIntType}).unwrap()
+            }).unwrap();
             
             let task_order_query = format!(
                 "SELECT MAX(task_order) + 1 FROM TaskOrder WHERE todo_id = {}",
-                todo.id()
-            );
+                todo.id());
 
-
-            let task_order_query_result = match self.db.select_query(&task_order_query) {
-                Ok(mut cursor) => {
-                    cursor.next().unwrap().map(|r| {r[0].as_integer().unwrap_or(1) as IdIntType})
-                },
-                Err(_) => None
-            };
-            
-            let task_order = task_order_query_result.unwrap();
+            let task_order = self.db.select_query(&task_order_query).ok().map(|mut cursor| {
+                cursor.next().unwrap().map(|r| {r[0].as_integer().unwrap_or(1) as IdIntType}).unwrap()
+            }).unwrap();
             
             self.db.exec(&format!(
                 "INSERT INTO TaskOrder(todo_id, task_id, task_order) VALUES ({}, {}, {})",
@@ -246,22 +228,17 @@ impl App {
 
     /// Returns a task of the database if found
     fn get_task_by_id(&mut self, task_id: IdIntType) -> Option<Task> {
-        let query = format!("
-        SELECT
-            task, date_added, date_completed
-        FROM
-            Tasks
-        WHERE task_id = {}", task_id);
-        if let Ok(mut cursor) = self.db.select_query(&query) {
-            if let Some(task) = cursor.next().unwrap() {
-                let task = create_task(
-                    task_id, task[0].as_string().unwrap(),
+        let result = self.db.select_query(&format!(
+            "SELECT task, date_added, date_completed FROM
+             Tasks WHERE task_id = {}", task_id)
+        );
+        if let Ok(mut cursor) = result {
+            cursor.next().unwrap().map(|task| {
+                create_task(task_id,
+                    task[0].as_string().unwrap(),
                     task[1].as_string().unwrap(),
-                    task[2].as_string());
-                Some(task)    
-            } else {
-                None
-            }
+                    task[2].as_string())
+            })
         } else {
             None
         }
@@ -274,16 +251,13 @@ impl App {
             todo_id = (SELECT todo_id FROM Todos WHERE name = '{}') AND
             task_order = {};", todo_name, task_order));
         if let Ok(mut cursor) = result {
-            if let Some(task) = cursor.next().unwrap() {
-                let task = create_task(
+            cursor.next().unwrap().map(|task| {
+                create_task(
                     task[0].as_integer().unwrap() as IdIntType,
                     task[1].as_string().unwrap(),
                     task[2].as_string().unwrap(),
-                    task[3].as_string());
-                Some(task)    
-            } else {
-                None
-            }
+                    task[3].as_string())
+            })
         } else {
             None
         }
