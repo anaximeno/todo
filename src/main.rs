@@ -152,7 +152,8 @@ impl App {
             task_order INTEGER NOT NULL,
             FOREIGN KEY (todo_id) REFERENCES Todos(todo_id),
             FOREIGN KEY (task_id) REFERENCES Tasks(task_id),
-            PRIMARY KEY (todo_id, task_id)
+            PRIMARY KEY (todo_id, task_id),
+            UNIQUE(todo_id, task_order)
         );") ? ;
         Ok(())
     }
@@ -206,8 +207,6 @@ impl App {
         }
         Ok(())
     }
-
-    
 
     /// Returns a task of the database if found
     fn get_task_by_id(&mut self, task_id: IdIntType) -> Option<Task> {
