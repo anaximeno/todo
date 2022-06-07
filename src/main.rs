@@ -212,7 +212,7 @@ impl App {
             let task_id = task_id_query_result.unwrap();
             
             let task_order_query = format!(
-                "SELECT MAX(task_order) FROM TaskOrder WHERE todo_id = {}",
+                "SELECT MAX(task_order) + 1 FROM TaskOrder WHERE todo_id = {}",
                 todo.id()
             );
 
@@ -224,7 +224,7 @@ impl App {
                 Err(_) => None
             };
             
-            let task_order = task_order_query_result.unwrap() + 1;
+            let task_order = task_order_query_result.unwrap();
             
             self.db.exec(&format!(
                 "INSERT INTO TaskOrder(todo_id, task_id, task_order) VALUES ({}, {}, {})",
