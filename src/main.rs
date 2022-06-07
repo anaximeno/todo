@@ -24,6 +24,13 @@ mod test {
         assert_eq!(app.name(), "test-app");
 
     }
+
+    #[test]
+    fn test_add_and_get_a_todo() {
+        let mut app = App::new("test-app", "0.0.1");
+        app.add_todo("test", "this a test todo!").unwrap();
+        assert_ne!(app.get_todo("test"), None);
+    }
 }
 
 /// Database handler for the aplication
@@ -32,7 +39,7 @@ struct Database {
     conn: Connection
 }
 
-/// Represents the todo application
+/// Representtodo, s th application
 struct App {
     db: Database,
     version: String,
