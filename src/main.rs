@@ -37,7 +37,7 @@ mod test {
         let mut app = App::new("test-app", "0.0.1");
         app.add_todo("test-todo", "test use of tasks").unwrap();
         app.add_task("check if this todo is working", "test-todo").unwrap();
-        assert_ne!(app.get_task(1), None);
+        assert_ne!(app.get_task_by_id(1), None);
     }
 }
 
@@ -210,7 +210,7 @@ impl App {
     
 
     /// Returns a task of the database if found
-    fn get_task(&mut self, task_id: IdIntType) -> Option<Task> {
+    fn get_task_by_id(&mut self, task_id: IdIntType) -> Option<Task> {
         let query = format!("
         SELECT
             task, date_added, date_completed
@@ -251,7 +251,7 @@ fn main() {
        .expect("Could not add a task!");
        
     let mut todo = app.get_todo("test").unwrap();
-    let task = app.get_task(1).unwrap();
+    let task = app.get_task_by_id(1).unwrap();
 
     todo.add_task(task).unwrap();
     
