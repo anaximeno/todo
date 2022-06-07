@@ -1,6 +1,31 @@
 use sqlite::Connection;
 use todo::*;
 
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_database_default_instantiation() {
+        let db = Database::new();
+        assert_eq!(db.path(), ":memory:");
+    }
+
+    #[test]
+    fn test_database_instantiation_from_path() {
+        let db = Database::from(":memory:");
+        assert_eq!(db.path(), ":memory:");
+    }
+
+    #[test]
+    fn test_app_instantiation() {
+        let app = App::new("test-app", "0.0.1");
+        assert_eq!(app.version(), "0.0.1");
+        assert_eq!(app.name(), "test-app");
+
+    }
+}
+
 /// Database handler for the aplication
 struct Database {
     path: String,
