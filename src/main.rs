@@ -181,13 +181,11 @@ impl App {
             "SELECT todo_id, description FROM
              Todos WHERE name = '{}'", name));
         if let Ok(mut cursor) = result {
-            if let Some(value) = cursor.next().unwrap() {
-                let todo_id = value[0].as_integer().unwrap();
-                let description = value[1].as_string().unwrap();
-                Some(Todo::with_description(todo_id as IdIntType, name, description))
-            } else {
-                None
-            } 
+            cursor.next().unwrap().map(|todo| {
+                let todo_id = todo[0].as_integer().unwrap();
+                let description = todo[1].as_string().unwrap();
+                Todo::with_description(todo_id as IdIntType, name, description)
+            })
         } else {
             None
         }
@@ -282,7 +280,7 @@ fn main() {
        .expect("Could not add a task!");
        
     let mut todo = app.get_todo("test").unwrap();
-    let task = app.get_task_by_id(1).unwrap();
+    let task = app.get_task_by_order(1, "test").unwrap();
 
     todo.add_task(task).unwrap();
     
