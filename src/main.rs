@@ -1,3 +1,4 @@
+#![allow(unused)]
 use sqlite::Connection;
 use todo::*;
 
