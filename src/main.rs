@@ -233,10 +233,12 @@ impl Artisan {
 
     fn get_task_by_order(&mut self, task_order: usize, todo_name: &str) -> Option<Task> {
         let result = self.db.select_query(&format!(
-            "SELECT t.task_id, task, date_added, date_completed FROM Tasks t INNER JOIN
-            TaskOrder USING (todo_id, task_id) WHERE
-            todo_id = (SELECT todo_id FROM Todos WHERE name = '{}') AND
-            task_order = {};", todo_name, task_order));
+            "SELECT t.task_id, task, date_added, date_completed 
+             FROM Tasks t
+             INNER JOIN TaskOrder
+             USING (todo_id, task_id)
+             WHERE todo_id = (SELECT todo_id FROM Todos WHERE name = '{}')
+             AND task_order = {};", todo_name, task_order));
         if let Ok(mut cursor) = result {
             cursor.next().unwrap().map(|task| {
                 create_task(
