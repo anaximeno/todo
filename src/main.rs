@@ -1,6 +1,6 @@
 #![allow(unused)]
 use sqlite::Connection;
-use todo::*;
+use todo::core::*;
 
 #[cfg(test)]
 mod test {
