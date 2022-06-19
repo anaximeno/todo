@@ -39,14 +39,6 @@ mod test {
         art.add_task("check", "test-todo").unwrap();
         assert_eq!(art.get_task_by_id(1).unwrap().task(), "check");
     }
-
-    #[test]
-    fn test_add_and_get_a_task_by_order() {
-        let mut art = Artisan::new(":memory:");
-        art.add_todo("test-todo", "test use of tasks").unwrap();
-        art.add_task("check", "test-todo").unwrap();
-        assert_eq!(art.get_task_by_order(1, "test-todo").unwrap().task(), "check");
-    }
 }
 
 /// Database handler for the aplication
@@ -129,7 +121,7 @@ impl Artisan {
         self.db.exec("
         CREATE TABLE IF NOT EXISTS Todos(
             todo_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
+            name TEXT NOT NULL UNIQUE,
             description TEXT NOT NULL
         );") ? ;
         self.db.exec("
@@ -141,25 +133,12 @@ impl Artisan {
             date_completed DATETIME,
             FOREIGN KEY (todo_id) REFERENCES Todos(todo_id)
         );") ? ;
-        self.db.exec("
-        CREATE TABLE IF NOT EXISTS TaskOrder(
-            todo_id INTEGER NOT NULL,
-            task_id INTEGER NOT NULL,
-            task_order INTEGER NOT NULL,
-            FOREIGN KEY (todo_id) REFERENCES Todos(todo_id),
-            FOREIGN KEY (task_id) REFERENCES Tasks(task_id),
-            PRIMARY KEY (todo_id, task_id),
-            UNIQUE(todo_id, task_order)
-        );") ? ;
         Ok(())
     }
 
     /// Add a new todo to the database
     fn add_todo(&self, name: &str, description: &str) -> Result<(), sqlite::Error> {
-        self.db.exec(&format!(
-            "INSERT INTO Todos(name, description)
-             VALUES ('{}', '{}')", name, description)
-        ) ? ;
+        self.db.exec(&format!("INSERT INTO Todos(name, description) VALUES ('{}', '{}')", name, description)) ? ;
         Ok(())
     }
 
@@ -180,34 +159,36 @@ impl Artisan {
         }
     }
 
+    fn get_task_id(&mut self, task: &str) -> Option<IdIntType> {
+        self.db
+        .select_query(&format!("SELECT task_id FROM Tasks WHERE task = '{}'", task))
+        .expect("Could not query for the task's id into the database!")
+        .next()
+        .unwrap()
+        .map(|res| {
+            let id = res[0].as_integer().unwrap();
+            id as IdIntType
+        })
+    }
+
+    fn insert_task_into_the_db(&mut self, task: &str, todo_id: IdIntType) -> Result<(), sqlite::Error> {
+        self.db.exec(&format!("INSERT INTO Tasks(task, todo_id) VALUES('{}', {})", task, todo_id))
+    }
+
     /// Add a new task to the database
-    fn add_task(&mut self, task: &str, todo_name: &str) -> Result<(), sqlite::Error> {
+    fn add_task(&mut self, task: &str, todo_name: &str) -> Result<(), &str> {
         if let Some(todo) = self.get_todo(todo_name) {
-            self.db.exec(&format!(
-                "INSERT INTO Tasks(task, todo_id) VALUES ('{}', {})",
-                task, todo.id())
-            ) ? ;
+            let task_id = self.get_task_id(task);
 
-            let task_id_query = format!("SELECT task_id FROM Tasks WHERE task = '{}'", task);
+            if let Some(id) = task_id {
+                return Err("Task added more than one time to the todo!");
+            }
 
-            let task_id = self.db.select_query(&task_id_query).ok().map(|mut cursor| {
-                cursor.next().unwrap().map(|r| {r[0].as_integer().unwrap() as IdIntType}).unwrap()
-            }).unwrap();
-            
-            let task_order_query = format!(
-                "SELECT MAX(task_order) + 1 FROM TaskOrder WHERE todo_id = {}",
-                todo.id());
-
-            let task_order = self.db.select_query(&task_order_query).ok().map(|mut cursor| {
-                cursor.next().unwrap().map(|r| {r[0].as_integer().unwrap_or(1) as IdIntType}).unwrap()
-            }).unwrap();
-            
-            self.db.exec(&format!(
-                "INSERT INTO TaskOrder(todo_id, task_id, task_order) VALUES ({}, {}, {})",
-                todo.id(), task_id, task_order)
-            ) ? ;
+            if let Err(_) = self.insert_task_into_the_db(task, *todo.id()) {
+                return Err("Error inserting the task into the Database!");
+            }
         } else {
-            self.add_todo(todo_name, "") ? ;
+            self.add_todo(todo_name, "").unwrap();
             self.add_task(task, todo_name) ? ;
         }
         Ok(())
@@ -230,27 +211,6 @@ impl Artisan {
             None
         }
     }
-
-    fn get_task_by_order(&mut self, task_order: usize, todo_name: &str) -> Option<Task> {
-        let result = self.db.select_query(&format!(
-            "SELECT t.task_id, task, date_added, date_completed 
-             FROM Tasks t
-             INNER JOIN TaskOrder
-             USING (todo_id, task_id)
-             WHERE todo_id = (SELECT todo_id FROM Todos WHERE name = '{}')
-             AND task_order = {};", todo_name, task_order));
-        if let Ok(mut cursor) = result {
-            cursor.next().unwrap().map(|task| {
-                create_task(
-                    task[0].as_integer().unwrap() as IdIntType,
-                    task[1].as_string().unwrap(),
-                    task[2].as_string().unwrap(),
-                    task[3].as_string())
-            })
-        } else {
-            None
-        }
-    } 
 }
 
 impl App {
