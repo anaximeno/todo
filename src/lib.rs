@@ -177,7 +177,7 @@ impl Task {
         &self.status
     }
 
-    /// References the task of the task.
+    /// References the task of the Task struct.
     pub fn task(&self) -> &String {
         &self.task
     }
