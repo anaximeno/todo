@@ -37,7 +37,7 @@ mod test {
     fn test_add_and_get_a_task_by_id() {
         let mut art = Artisan::new(":memory:");
         art.add_task("check", "test-todo").unwrap();
-        assert_eq!(art.get_task_by_id(1).unwrap().task(), "check");
+        assert_eq!(art.get_task(1).unwrap().task(), "check");
     }
 }
 
@@ -146,15 +146,15 @@ impl Artisan {
     /// database using the name.
     fn get_todo(&mut self, name: &str) -> Option<Todo> {
         self.db
-            .select_query(&format!("SELECT todo_id, description FROM Todos WHERE name = '{}'", name))
-            .expect(&format!("Could not query the todo: '{}'", name))
-            .next()
-            .unwrap()
-            .map(|todo| {
-                let id = todo[0].as_integer().unwrap() as IdIntType;
-                let description = todo[1].as_string().unwrap();
-                Todo::with_description(id, name, description)
-            })
+        .select_query(&format!("SELECT todo_id, description FROM Todos WHERE name = '{}'", name))
+        .expect(&format!("Could not query the todo: '{}'", name))
+        .next()
+        .unwrap()
+        .map(|todo| {
+            let id = todo[0].as_integer().unwrap() as IdIntType;
+            let description = todo[1].as_string().unwrap();
+            Todo::with_description(id, name, description)
+        })
     }
 
     fn get_task_id(&mut self, task: &str) -> Option<IdIntType> {
@@ -193,21 +193,25 @@ impl Artisan {
     }
 
     /// Returns a task of the database if found
-    fn get_task_by_id(&mut self, task_id: IdIntType) -> Option<Task> {
-        let result = self.db.select_query(&format!(
-            "SELECT task, date_added, date_completed FROM
-             Tasks WHERE task_id = {}", task_id)
-        );
-        if let Ok(mut cursor) = result {
-            cursor.next().unwrap().map(|task| {
-                create_task(task_id,
-                    task[0].as_string().unwrap(),
-                    task[1].as_string().unwrap(),
-                    task[2].as_string())
-            })
-        } else {
-            None
-        }
+    fn get_task(&mut self, task_id: IdIntType) -> Option<Task> {
+        self.db
+        .select_query(&format!("SELECT task, date_added, date_completed FROM Tasks WHERE task_id = {}", task_id))
+        .unwrap()
+        .next()
+        .unwrap()
+        .map(|res| {
+            let task = res[0].as_string().unwrap();
+            let date_added = res[1].as_string().unwrap();
+            let status = match res[2].as_string() {
+                Some(date) => Status::from(date),
+                None => Status::Todo };
+            Task::with_status(
+                task_id,
+                task,
+                date_added,
+                status
+            )
+        })
     }
 }
 
@@ -231,14 +235,6 @@ impl App {
     } 
 }
 
-/// Gets the data from the query and creates a task
-fn create_task(task_id: IdIntType, task: &str, date_added: &str, date_completed: Option<&str>) -> Task {
-    let status = match date_completed {
-        Some(date) => Status::from(date),
-        None => Status::Todo
-    };
-    Task::with_status(task_id, task, date_added, status)
-}
 
 fn main() {
     let mut app = App::new("TodoApp", "2.1.0");
