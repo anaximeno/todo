@@ -145,18 +145,16 @@ impl Artisan {
     /// Queries and returns if found a todo from the
     /// database using the name.
     fn get_todo(&mut self, name: &str) -> Option<Todo> {
-        let result = self.db.select_query(&format!(
-            "SELECT todo_id, description FROM
-             Todos WHERE name = '{}'", name));
-        if let Ok(mut cursor) = result {
-            cursor.next().unwrap().map(|todo| {
-                let todo_id = todo[0].as_integer().unwrap();
+        self.db
+            .select_query(&format!("SELECT todo_id, description FROM Todos WHERE name = '{}'", name))
+            .expect(&format!("Could not query the todo: '{}'", name))
+            .next()
+            .unwrap()
+            .map(|todo| {
+                let id = todo[0].as_integer().unwrap() as IdIntType;
                 let description = todo[1].as_string().unwrap();
-                Todo::with_description(todo_id as IdIntType, name, description)
+                Todo::with_description(id, name, description)
             })
-        } else {
-            None
-        }
     }
 
     fn get_task_id(&mut self, task: &str) -> Option<IdIntType> {
