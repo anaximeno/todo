@@ -28,24 +28,24 @@ mod test {
 
     #[test]
     fn test_add_and_get_a_todo() {
-        let mut app = App::new("test-app", "0.0.1");
-        app.add_todo("test", "this a test todo!").unwrap();
-        assert_ne!(app.get_todo("test"), None);
+        let mut art = Artisan::new(":memory:");
+        art.add_todo("test", "this a test todo!").unwrap();
+        assert_ne!(art.get_todo("test"), None);
     }
 
     #[test]
     fn test_add_and_get_a_task_by_id() {
-        let mut app = App::new("test-app", "0.0.1");
-        app.add_task("check", "test-todo").unwrap();
-        assert_eq!(app.get_task_by_id(1).unwrap().task(), "check");
+        let mut art = Artisan::new(":memory:");
+        art.add_task("check", "test-todo").unwrap();
+        assert_eq!(art.get_task_by_id(1).unwrap().task(), "check");
     }
 
     #[test]
     fn test_add_and_get_a_task_by_order() {
-        let mut app = App::new("test-app", "0.0.1");
-        app.add_todo("test-todo", "test use of tasks").unwrap();
-        app.add_task("check", "test-todo").unwrap();
-        assert_eq!(app.get_task_by_order(1, "test-todo").unwrap().task(), "check");
+        let mut art = Artisan::new(":memory:");
+        art.add_todo("test-todo", "test use of tasks").unwrap();
+        art.add_task("check", "test-todo").unwrap();
+        assert_eq!(art.get_task_by_order(1, "test-todo").unwrap().task(), "check");
     }
 }
 
@@ -55,11 +55,17 @@ struct Database {
     conn: Connection
 }
 
-/// Representtodo, s th application
+/// Responsible for the interations
+/// with the Database
+struct Artisan {
+    db: Database
+}
+
+/// Represents the todo application
 struct App {
-    db: Database,
+    name: String,
     version: String,
-    name: String
+    artisan: Artisan,
 }
 
 impl From<&str> for Database {
@@ -104,35 +110,17 @@ impl Database {
     }
 }
 
-impl App {
-    /// Used to create an app
-    fn new(name: &str, version: &str) -> Self {
-        let db = Database::new();
-        let name = String::from(name);
-        let version = String::from(version);
-        let this = Self{db, name, version};
+impl Artisan {
+    /// Creates a new artisan
+    fn new(db_path: &str) -> Self {
+        let this = Self{db: Database::from(db_path)};
         this.init_db().expect("Error Initializing the DB!");
         this
     }
 
-    /// Creates an app with db set on a specific path
-    fn with_db_path(name: &str, version: &str, db_path: &str) -> Self {
-        let db = Database::from(db_path);
-        let name = String::from(name);
-        let version = String::from(version);
-        let this = Self{db, name, version};
-        this.init_db().expect("Error Initializing the DB!");
-        this
-    }
-
-    /// References the name of this app
-    fn name(&self) -> &String {
-        &self.name
-    }
-
-    /// References the version of this app
-    fn version(&self) -> &String {
-        &self.version
+    /// Returns a reference to the path of the db
+    fn get_db_path(&self) -> &String {
+        self.db.path()
     }
 
     /// Initializes the sqlite database with the default relations,
@@ -260,7 +248,27 @@ impl App {
         } else {
             None
         }
+    } 
+}
+
+impl App {
+    /// Used to create an app
+    fn new(name: &str, version: &str) -> Self {
+        let name = String::from(name);
+        let version = String::from(version);
+        let artisan = Artisan::new(":memory:");
+        Self{artisan, name, version}
     }
+
+    /// References the name of this app
+    fn name(&self) -> &String {
+        &self.name
+    }
+
+    /// References the version of this app
+    fn version(&self) -> &String {
+        &self.version
+    } 
 }
 
 /// Gets the data from the query and creates a task
@@ -273,17 +281,9 @@ fn create_task(task_id: IdIntType, task: &str, date_added: &str, date_completed:
 }
 
 fn main() {
-    let mut app = App::new("TodoApp", "0.1.0");
-
-    app.add_todo("test", "testing todo list")
-       .expect("Could not add a todo!");
-    app.add_task("first test adding new tasks", "test")
-       .expect("Could not add a task!");
-       
-    let mut todo = app.get_todo("test").unwrap();
-    let task = app.get_task_by_order(1, "test").unwrap();
-
-    todo.add_task(task).unwrap();
-    
-    println!("{:#?}", todo);
+    let mut app = App::new("TodoApp", "2.1.0");
+    println!(
+        "Welcome to the {}, version {}",
+        app.name(), app.version()
+    );
 }
