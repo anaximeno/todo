@@ -375,14 +375,14 @@ pub mod back {
             CREATE TABLE IF NOT EXISTS Tasks(
                 task_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                 task TEXT NOT NULL,
-                todo_id INTEGER NOT NULL,
+                todo_id INTEGER,
                 date_added DATETIME NOT NULL DEFAULT CURRENT_DATE,
                 date_completed DATETIME,
-                FOREIGN KEY (todo_id) REFERENCES Todos(todo_id)
+                FOREIGN KEY (todo_id) REFERENCES Todos(todo_id) ON DELETE SET NULL
             );") ? ;
             Ok(())
         }
-    
+
         /// Add a new todo to the database
         pub fn add_todo(&self, name: &str, description: &str) -> Result<(), sqlite::Error> {
             self.db.exec(&format!("INSERT INTO Todos(name, description) VALUES ('{}', '{}')", name, description)) ? ;
