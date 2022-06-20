@@ -130,6 +130,38 @@ mod tests {
         let todo = dao.get_all_todos().unwrap();
         assert_eq!(todo.len(), 2);
     }
+
+    #[test]
+    fn test_get_all_tasks_from_todo() {
+        let mut dao = TodoDatabaseDAO::new(":memory:");
+        dao.add_task("test insertion 1", "test").unwrap();
+        dao.add_task("test insertion 2", "test").unwrap();
+        dao.add_task("task from another todo 1", "another").unwrap();
+        assert_eq!(dao.get_all_tasks_from_todo(1).unwrap().len(), 2);
+        assert_eq!(dao.get_all_tasks_from_todo(2).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_get_todo_with_all_tasks() {
+        let mut dao = TodoDatabaseDAO::new(":memory:");
+        dao.add_task("test insertion 1", "test").unwrap();
+        dao.add_task("test insertion 2", "test").unwrap();
+        let todo = dao.get_todo_with_all_tasks(1).unwrap();
+        assert_eq!(todo.number_of_tasks(), 2);
+    }
+
+    #[test]
+    fn test_get_all_todos_with_all_tasks() {
+        let mut dao = TodoDatabaseDAO::new(":memory:");
+        dao.add_task("test insertion 1", "test").unwrap();
+        dao.add_task("test insertion 2", "test").unwrap();
+        dao.add_task("task from another todo 1", "another").unwrap();
+        dao.add_task("Just one more", "lastone").unwrap();
+        let todos = dao.get_all_todos_with_all_tasks().unwrap();
+        assert_eq!(todos.get(0).unwrap().number_of_tasks(), 2);
+        assert_eq!(todos.get(1).unwrap().number_of_tasks(), 1);
+        assert_eq!(todos.get(2).unwrap().number_of_tasks(), 1);
+    }
 }
 
 
@@ -381,7 +413,7 @@ pub mod back {
     pub trait TodoDatabaseDAOLike: TodoDAOLike + TaskDAOLike {
         fn get_all_tasks_from_todo(&mut self, todo_id: IdType) -> Option<Vec<Task>>;
         fn get_todo_with_all_tasks(&mut self, todo_id: IdType) -> Option<Todo>;
-        fn get_all_todos_with_all_tasks_cascade(&mut self) -> Option<Vec<Todo>>;
+        fn get_all_todos_with_all_tasks(&mut self) -> Option<Vec<Todo>>;
     }
     
     /// Data Access Object for the Todo Database
@@ -617,6 +649,60 @@ pub mod back {
 
         fn delete_task(&mut self, task_id: IdType) -> Result<(), sqlite::Error> {
             self.db.exec(&format!("DELETE FROM Tasks WHERE task_id = {}", task_id))
+        }
+    }
+
+    impl TodoDatabaseDAOLike for TodoDatabaseDAO { // TODO
+        fn get_all_tasks_from_todo(&mut self, todo_id: IdType) -> Option<Vec<Task>> {
+            /** 
+             * NOTE: Maybe use the method get all task, checking its todo_id to return the result
+             * (keep in mind that the todo_id must be added to the struct Task first).
+             * */
+            let mut cursor = self.db
+            .select_query(
+                &format!("SELECT task_id, task, date_added, date_completed FROM Tasks WHERE todo_id = {}", todo_id)
+            ).expect("Error quering for todos on the database!");
+            let mut tasks: Vec<Task> = Vec::new();
+            while let Some(mut result) = cursor.next().unwrap() {
+                let id = result[0].as_integer().unwrap() as IdType;
+                let task = result[1].as_string().unwrap();
+                let date_added = result[2].as_string().unwrap();
+                let status = match result[3].as_string() {
+                    Some(date) => Status::Done(String::from(date)),
+                    None => Status::Todo };
+                tasks.push(Task::with_status(id, task, date_added, status));
+            }
+            if tasks.len() > 0 {
+                Some(tasks)
+            } else {
+                None
+            }
+        }
+
+        fn get_todo_with_all_tasks(&mut self, todo_id: IdType) -> Option<Todo> {
+            if let Some(mut todo) = self.get_todo_by_id(todo_id) {
+                if let Some(tasks) = self.get_all_tasks_from_todo(todo_id) {
+                    for task in tasks { todo.add_task(task); }
+                }
+                Some(todo)
+            } else {
+                None
+            }
+        }
+
+        fn get_all_todos_with_all_tasks(&mut self) -> Option<Vec<Todo>> {
+            if let Some(mut todos) = self.get_all_todos() {
+                for mut todo in &mut todos {
+                    if let Some(tasks) = self.get_all_tasks_from_todo(*todo.id()) {
+                        for task in tasks {
+                            todo.add_task(task);
+                        }
+                    }
+                }
+                Some(todos)
+            } else {
+                None
+            }
         }
     }
 }
