@@ -88,6 +88,20 @@ mod tests {
         art.delete_todo(todo_id).unwrap();
         assert_eq!(art.get_todo_id("test"), None);
     }
+
+    #[test]
+    fn test_update_task() {
+        let mut art = Artisan::new(":memory:");
+        let task = "test task deletion";
+        art.add_task(&task, "test").unwrap();
+        let task_id = art.get_task_id(&task).unwrap();
+        // Used this to prove the id is the same!
+        let prev_task_id = task_id.clone();
+        let new_task = "test task update";
+        art.update_task(task_id, &new_task).unwrap();
+        let new_task_id = art.get_task_id(&new_task).unwrap();
+        assert_eq!(prev_task_id, new_task_id);
+    }
 }
 
 
@@ -519,6 +533,10 @@ pub mod back {
 
         pub fn delete_todo(&mut self, todo_id: IdType) -> Result<(), sqlite::Error> {
             self.db.exec(&format!("DELETE FROM Todos WHERE todo_id = {}", todo_id))
+        }
+
+        pub fn update_task(&mut self, task_id: IdType, new_task: &str) -> Result<(), sqlite::Error> {
+            self.db.exec(&format!("UPDATE Tasks SET task = '{}' WHERE task_id = {}", new_task, task_id))
         }
     }
 }
