@@ -335,35 +335,43 @@ pub mod back {
 
     use super::core::*;
 
+    use sqlite::{
+        self,
+        Connection
+    };
 
+    /// Todo DAO trait
     pub trait TodoDAOLike {
-        fn get_all_todos(&self) -> Vec<Todo>;
+        fn get_all_todos(&self) -> Option<Vec<Todo>>;
         fn update_todo(&self, todo_id: IdType, todo: Todo) -> Result<(), sqlite::Error>;
         fn delete_todo(&self, todo_id: IdType) -> Result<(), sqlite::Error>;
         fn add_todo(&self, todo: Todo) -> Result<(), &str>;
     }
 
+    /// Task DAO trait
     pub trait TaskDAOLike {
-        fn get_all_tasks(&self) -> Vec<Task>;
+        fn get_all_tasks(&self) -> Option<Vec<Task>>;
         fn update_task(&self, task_id: IdType, task: Task) -> Result<(), sqlite::Error>;
         fn delete_task(&self, task_id: IdType) -> Result<(), sqlite::Error>;
         fn add_task(&self, task: Task) -> Result<(), &str>;
     }
 
-    use sqlite::{
-        self,
-        Connection
-    };
+    /// Full todo app database DAO trait
+    pub trait TodoDatabaseDAOLike: TodoDAOLike + TaskDAOLike {
+        fn get_all_tasks_from_todo(&self, todo_id: IdType) -> Option<Vec<Task>>;
+        fn get_todo_with_all_tasks(&self, todo_id: IdType) -> Option<Todo>;
+        fn get_all_todos_with_all_tasks_cascade(&self) -> Option<Vec<Todo>>;
+    }
     
+    /// Data Access Object for the Todo Database
+    struct TodoDatabaseDAO {
+        db: Database
+    }
+
     /// Database handler for the aplication
     struct Database {
         path: String,
         conn: Connection
-    }
-
-    /// Data Access Object for the Todo Database
-    struct TodoDatabaseDAO {
-        db: Database
     }
 
     /// Responsible for interations
