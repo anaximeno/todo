@@ -29,6 +29,6 @@ impl App {
 
 
 fn main() {
-    let app = App::new("TodoApp", "2.1.0");
+    let app = App::new("TodoApp", "2.2.0");
     println!("Welcome to the {}, version {}", app.name(), app.version());
 }
