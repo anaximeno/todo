@@ -379,11 +379,23 @@ pub mod back {
                 Todo::with_description(id, name, description)
             })
         }
-    
+
+        pub fn get_todo_id(&mut self, name: &str) -> Option<IdIntType> {
+            self.db
+            .select_query(&format!("SELECT todo_id FROM Todos WHERE name = '{}'", name))
+            .expect("Could not query for the todo's id from the database!")
+            .next()
+            .unwrap()
+            .map(|res| {
+                let id = res[0].as_integer().unwrap();
+                id as IdIntType
+            })
+        }
+
         pub fn get_task_id(&mut self, task: &str) -> Option<IdIntType> {
             self.db
             .select_query(&format!("SELECT task_id FROM Tasks WHERE task = '{}'", task))
-            .expect("Could not query for the task's id into the database!")
+            .expect("Could not query for the task's id from the database!")
             .next()
             .unwrap()
             .map(|res| {
