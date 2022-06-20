@@ -1,19 +1,20 @@
-use todo::back::Artisan;
+use todo::back::*;
 
 /// Represents the todo application
 struct App {
     name: String,
     version: String,
-    artisan: Artisan,
+    dao: TodoDatabaseDAO,
 }
 
 impl App {
     /// Used to create an app
     fn new(name: &str, version: &str) -> Self {
-        let name = String::from(name);
-        let version = String::from(version);
-        let artisan = Artisan::new(":memory:");
-        Self{artisan, name, version}
+        Self {
+            dao: TodoDatabaseDAO::new(":memory:"),
+            name: String::from(name),
+            version: String::from(version)
+        }
     }
 
     /// References the name of this app
