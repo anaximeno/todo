@@ -102,6 +102,17 @@ mod tests {
         let new_task_id = art.get_task_id(&new_task).unwrap();
         assert_eq!(prev_task_id, new_task_id);
     }
+
+    #[test]
+    fn test_update_todo() {
+        let mut art = Artisan::new(":memory:");
+        art.add_todo("tst", "test todo deletion").unwrap();
+        let todo_id = art.get_todo_id("tst").unwrap();
+        let prev_todo_id = todo_id.clone();
+        art.update_todo(todo_id, "test").unwrap();
+        let new_todo_id = art.get_todo_id("test").unwrap();
+        assert_eq!(new_todo_id, prev_todo_id);
+    }
 }
 
 
@@ -537,6 +548,10 @@ pub mod back {
 
         pub fn update_task(&mut self, task_id: IdType, new_task: &str) -> Result<(), sqlite::Error> {
             self.db.exec(&format!("UPDATE Tasks SET task = '{}' WHERE task_id = {}", new_task, task_id))
+        }
+
+        pub fn update_todo(&mut self, todo_id: IdType, new_todo_name: &str) -> Result<(), sqlite::Error> {
+            self.db.exec(&format!("UPDATE Todos SET name = '{}' WHERE todo_id = {}", new_todo_name, todo_id))
         }
     }
 }
