@@ -345,7 +345,6 @@ pub mod back {
 
     pub trait TaskDAOLike {
         fn get_all_tasks(&self) -> Vec<Task>;
-        fn get_all_tasks_from_todo(&self, todo_id: IdType) -> Vec<Task>;
         fn update_task(&self, task_id: IdType, task: Task) -> Result<(), sqlite::Error>;
         fn delete_task(&self, task_id: IdType) -> Result<(), sqlite::Error>;
         fn add_task(&self, task: Task) -> Result<(), &str>;
