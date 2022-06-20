@@ -113,6 +113,49 @@ mod tests {
         let new_todo_id = art.get_todo_id("test").unwrap();
         assert_eq!(new_todo_id, prev_todo_id);
     }
+
+    #[test]
+    fn test_db_dao_add_and_get_todo() {
+        let mut dao = TodoDatabaseDAO::new(":memory:");
+        dao.add_todo("test", None).unwrap();
+        let todo = dao.get_todo_by_name("test");
+        assert_ne!(todo, None);
+    }
+
+    #[test]
+    fn test_db_dao_get_todo_by_id() {
+        let mut dao = TodoDatabaseDAO::new(":memory:");
+        dao.add_todo("test", None).unwrap();
+        let todo = dao.get_todo_by_id(1);
+        assert_ne!(todo, None);
+    }
+
+    #[test]
+    fn test_db_dao_get_all_todos() {
+        let mut dao = TodoDatabaseDAO::new(":memory:");
+        dao.add_todo("test", None).unwrap();
+        dao.add_todo("tast2", Some("testing add multiple todos")).unwrap();
+        let todo = dao.get_all_todos().unwrap();
+        assert_eq!(todo.len(), 2);
+    }
+
+    #[test]
+    fn test_db_dao_update_todo() {
+        let mut dao = TodoDatabaseDAO::new(":memory:");
+        dao.add_todo("tt", None).unwrap();
+        dao.update_todo(1, "test", Some("testing todo")).unwrap();
+        let todo = dao.get_todo_by_id(1).unwrap();
+        assert_eq!(todo.name(), "test");
+        assert_eq!(todo.description().unwrap(), "testing todo");
+    }
+
+    #[test]
+    fn test_db_dao_delete_todo() {
+        let mut dao = TodoDatabaseDAO::new(":memory:");
+        dao.add_todo("test", None).unwrap();
+        dao.delete_todo(1).unwrap();
+        assert_eq!(dao.get_all_todos(), None);
+    }
 }
 
 
@@ -289,8 +332,8 @@ pub mod core {
         }
         
         /// References the description.
-        pub fn description(&self) -> &Option<String> {
-            &self.description
+        pub fn description(&self) -> Option<&String> {
+            self.description.as_ref()
         }
 
         /// Adds a new task to the tasklist.
@@ -342,29 +385,32 @@ pub mod back {
 
     /// Todo DAO trait
     pub trait TodoDAOLike {
-        fn get_all_todos(&self) -> Option<Vec<Todo>>;
-        fn update_todo(&self, todo_id: IdType, todo: Todo) -> Result<(), sqlite::Error>;
-        fn delete_todo(&self, todo_id: IdType) -> Result<(), sqlite::Error>;
-        fn add_todo(&self, todo: Todo) -> Result<(), &str>;
+        fn get_all_todos(&mut self) -> Option<Vec<Todo>>;
+        fn get_todo_by_name(&mut self, name: &str) -> Option<Todo>;
+        fn get_todo_by_id(&mut self, id: IdType) -> Option<Todo>;
+        fn update_todo(&mut self, todo_id: IdType, name: &str, desc: Option<&str>) -> Result<(), sqlite::Error>;
+        fn delete_todo(&mut self, todo_id: IdType) -> Result<(), sqlite::Error>;
+        fn add_todo(&mut self, name: &str, desc: Option<&str>) -> Result<(), sqlite::Error>;
     }
 
     /// Task DAO trait
     pub trait TaskDAOLike {
-        fn get_all_tasks(&self) -> Option<Vec<Task>>;
-        fn update_task(&self, task_id: IdType, task: Task) -> Result<(), sqlite::Error>;
-        fn delete_task(&self, task_id: IdType) -> Result<(), sqlite::Error>;
-        fn add_task(&self, task: Task) -> Result<(), &str>;
+        fn get_all_tasks(&mut self) -> Option<Vec<Task>>;
+        fn get_task_by_id(&mut self, task_id: IdType) -> Option<Task>;
+        fn update_task(&mut self, task_id: IdType, task: &str) -> Result<(), sqlite::Error>;
+        fn delete_task(&mut self, task_id: IdType) -> Result<(), sqlite::Error>;
+        fn add_task(&mut self, task: &str, todo_name: Option<&str>) -> Result<(), sqlite::Error>;
     }
 
     /// Full todo app database DAO trait
     pub trait TodoDatabaseDAOLike: TodoDAOLike + TaskDAOLike {
-        fn get_all_tasks_from_todo(&self, todo_id: IdType) -> Option<Vec<Task>>;
-        fn get_todo_with_all_tasks(&self, todo_id: IdType) -> Option<Todo>;
-        fn get_all_todos_with_all_tasks_cascade(&self) -> Option<Vec<Todo>>;
+        fn get_all_tasks_from_todo(&mut self, todo_id: IdType) -> Option<Vec<Task>>;
+        fn get_todo_with_all_tasks(&mut self, todo_id: IdType) -> Option<Todo>;
+        fn get_all_todos_with_all_tasks_cascade(&mut self) -> Option<Vec<Todo>>;
     }
     
     /// Data Access Object for the Todo Database
-    struct TodoDatabaseDAO {
+    pub struct TodoDatabaseDAO {
         db: Database
     }
 
@@ -416,7 +462,7 @@ pub mod back {
     }
 
     impl TodoDatabaseDAO {
-        fn new(db_path: &str) -> Self {
+        pub fn new(db_path: &str) -> Self {
             let this = Self{db: Database::from(db_path)};
             this.init_db().expect("Error Initializing the DB!");
             this
@@ -448,6 +494,68 @@ pub mod back {
             self.db.path()
         }
     }
+
+    impl TodoDAOLike for TodoDatabaseDAO {
+        fn add_todo(&mut self, name: &str, desc: Option<&str>) -> Result<(), sqlite::Error> {
+            let desc = desc.unwrap_or("");
+            self.db.exec(&format!("INSERT INTO Todos(name, description) VALUES ('{}', '{}')", name, desc)) ? ;
+            Ok(())
+        }
+
+        fn get_todo_by_id(&mut self, id: IdType) -> Option<Todo> {
+            self.db
+            .select_query(&format!("SELECT name, description FROM Todos WHERE todo_id = '{}'", &id))
+            .expect(&format!("Could not query the todo with id: '{}'", &id))
+            .next()
+            .unwrap()
+            .map(|todo| {
+                let name = todo[0].as_string().unwrap();
+                let description = todo[1].as_string().unwrap();
+                Todo::with_description(id, name, description)
+            })
+        }
+
+        fn get_todo_by_name(&mut self, name: &str) -> Option<Todo> {
+            self.db
+            .select_query(&format!("SELECT todo_id, description FROM Todos WHERE name = '{}'", &name))
+            .expect(&format!("Could not query the todo: '{}'", &name))
+            .next()
+            .unwrap()
+            .map(|todo| {
+                let id = todo[0].as_integer().unwrap() as IdType;
+                let description = todo[1].as_string().unwrap();
+                Todo::with_description(id, name, description)
+            })
+        }
+
+        fn get_all_todos(&mut self) -> Option<Vec<Todo>> {
+            let mut cursor = self.db
+            .select_query("SELECT todo_id, name, description FROM Todos")
+            .expect("Error quering for todos on the database!");
+            let mut todos: Vec<Todo> = Vec::new();
+            while let Some(mut result) = cursor.next().unwrap() {
+                let id = result[0].as_integer().unwrap() as IdType;
+                let name = result[1].as_string().unwrap();
+                let desc = result[2].as_string().unwrap();
+                todos.push(Todo::with_description(id, name, desc))
+            }
+            if todos.len() > 0 {
+                Some(todos)
+            } else {
+                None
+            }
+        }
+
+        fn update_todo(&mut self, todo_id: IdType, name: &str, desc: Option<&str>) -> Result<(), sqlite::Error> {
+            self.db.exec(&format!("UPDATE Todos SET name = '{}' WHERE todo_id = {}", name, todo_id)) ? ;
+            self.db.exec(&format!("UPDATE Todos SET description = '{}' WHERE todo_id = {}", desc.unwrap_or(""), todo_id))
+        }
+
+        fn delete_todo(&mut self, todo_id: IdType) -> Result<(), sqlite::Error> {
+            self.db.exec(&format!("DELETE FROM Todos WHERE todo_id = {}", todo_id))
+        }
+    }
+
     
     impl Artisan {
         /// Creates a new artisan
