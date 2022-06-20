@@ -69,6 +69,16 @@ mod tests {
         let todos = art.get_todo_with_tasks("test").unwrap();
         assert_eq!(todos.number_of_tasks(), 2);
     }
+
+    #[test]
+    fn test_delete_task() {
+        let mut art = Artisan::new(":memory:");
+        let task = "test task deletion";
+        art.add_task(&task, "test").unwrap();
+        let task_id = art.get_task_id(&task).unwrap();
+        art.delete_task(task_id).unwrap();
+        assert_eq!(art.get_task_id(&task), None);
+    }
 }
 
 
@@ -492,6 +502,10 @@ pub mod back {
                     status
                 )
             })
+        }
+
+        pub fn delete_task(&mut self, task_id: IdType) -> Result<(), sqlite::Error> {
+            self.db.exec(&format!("DELETE FROM Tasks WHERE task_id = {}", task_id))
         }
     }
 }
