@@ -81,7 +81,7 @@ pub mod core {
     };
 
     /// The type of the id's used on the program.
-    pub type IdIntType = u64;
+    pub type IdType = u64;
 
     #[derive(Debug, PartialEq)]
     /// Used to define the current status of
@@ -102,7 +102,7 @@ pub mod core {
     /// A task is something the user
     /// wants to do.
     pub struct Task {
-        task_id: IdIntType,
+        task_id: IdType,
         task: String,
         date_added: Option<String>,
         status: Status
@@ -112,7 +112,7 @@ pub mod core {
     /// Todo structure used to store
     /// a set of task to be done.
     pub struct Todo {
-        todo_id: IdIntType,
+        todo_id: IdType,
         name: String,
         description: Option<String>,
         tasks: Vec<Task>
@@ -131,7 +131,7 @@ pub mod core {
             Self{details: "Task id was inserted more than once!".into()}
         }
 
-        fn with_task_id(task_id: &IdIntType) -> Self {
+        fn with_task_id(task_id: &IdType) -> Self {
             Self{details: format!("Task id {} was inserted more than once!", task_id)}
         }
 
@@ -155,20 +155,20 @@ pub mod core {
     impl Task {
         /// Creates a new task by determining the id and the task,
         /// others fields are set to default.
-        pub fn new(task_id: IdIntType, task: &str) -> Self {
+        pub fn new(task_id: IdType, task: &str) -> Self {
             let task = String::from(task);
             Self{task_id, task, date_added: None, status: Status::Todo}
         }
 
         /// Creates a new task with description.
-        pub fn with_date(task_id: IdIntType, task: &str, date_added: &str) -> Self {
+        pub fn with_date(task_id: IdType, task: &str, date_added: &str) -> Self {
             let task = String::from(task);
             let date_added = String::from(date_added);
             Self{task_id, task, date_added: Some(date_added), status: Status::Todo}
         }
 
         /// Creates a new task with a pre-defined status.
-        pub fn with_status(task_id: IdIntType, task: &str, date_added: &str, status: Status) -> Self {
+        pub fn with_status(task_id: IdType, task: &str, date_added: &str, status: Status) -> Self {
             let task = String::from(task);
             let date_added = String::from(date_added);
             Self{task_id, task, date_added: Some(date_added), status}
@@ -190,7 +190,7 @@ pub mod core {
         }
 
         /// References the task's id.
-        pub fn id(&self) -> &IdIntType {
+        pub fn id(&self) -> &IdType {
             &self.task_id
         }
         
@@ -212,13 +212,13 @@ pub mod core {
 
     impl Todo {
         /// Creates a new list using its id and name
-        pub fn new(todo_id: IdIntType, name: &str) -> Self {
+        pub fn new(todo_id: IdType, name: &str) -> Self {
             let name = String::from(name);
             Self{todo_id, name, description: None, tasks: Vec::new()}
         }
         
         /// Creates a new list with description
-        pub fn with_description(todo_id: IdIntType, name: &str, desc: &str) -> Self {
+        pub fn with_description(todo_id: IdType, name: &str, desc: &str) -> Self {
             let name = String::from(name);
             let desc = String::from(desc);
             Self{todo_id, name, description: Some(desc), tasks: Vec::new()}
@@ -235,7 +235,7 @@ pub mod core {
         }
 
         /// Reference the id.
-        pub fn id(&self) -> &IdIntType {
+        pub fn id(&self) -> &IdType {
             &self.todo_id
         }
         
@@ -260,18 +260,18 @@ pub mod core {
         }
 
         /// Returns the task's index
-        fn get_task_index(&self, taskid: IdIntType) -> Option<usize> {
+        fn get_task_index(&self, taskid: IdType) -> Option<usize> {
             self.tasks.iter().position(|t| *t.id() == taskid)
         }
 
         /// Gets the task by searching for its ID on the task's list
-        pub fn get_task(&self, taskid: IdIntType) -> Option<&Task> {
+        pub fn get_task(&self, taskid: IdType) -> Option<&Task> {
             let index = self.get_task_index(taskid);
             if let Some(idx) = index { self.tasks.get(idx) } else { None }
         }
 
         /// Gets the task by id, returning a mutable reference
-        pub fn get_task_mut(&mut self, taskid: IdIntType) -> Option<&mut Task> {
+        pub fn get_task_mut(&mut self, taskid: IdType) -> Option<&mut Task> {
             let index = self.get_task_index(taskid);
             if let Some(idx) = index { self.tasks.get_mut(idx) } else { None }
         }
@@ -388,13 +388,13 @@ pub mod back {
             .next()
             .unwrap()
             .map(|todo| {
-                let id = todo[0].as_integer().unwrap() as IdIntType;
+                let id = todo[0].as_integer().unwrap() as IdType;
                 let description = todo[1].as_string().unwrap();
                 Todo::with_description(id, name, description)
             })
         }
 
-        pub fn get_todo_id(&mut self, name: &str) -> Option<IdIntType> {
+        pub fn get_todo_id(&mut self, name: &str) -> Option<IdType> {
             self.db
             .select_query(&format!("SELECT todo_id FROM Todos WHERE name = '{}'", name))
             .expect("Could not query for the todo's id from the database!")
@@ -402,7 +402,7 @@ pub mod back {
             .unwrap()
             .map(|res| {
                 let id = res[0].as_integer().unwrap();
-                id as IdIntType
+                id as IdType
             })
         }
 
@@ -422,7 +422,7 @@ pub mod back {
                         Some(date) => Status::from(date),
                         None => Status::Todo };
                     todo.add_task(Task::with_status(
-                        task_id as IdIntType,
+                        task_id as IdType,
                         task,
                         date_added,
                         status
@@ -435,7 +435,7 @@ pub mod back {
             
         }
 
-        pub fn get_task_id(&mut self, task: &str) -> Option<IdIntType> {
+        pub fn get_task_id(&mut self, task: &str) -> Option<IdType> {
             self.db
             .select_query(&format!("SELECT task_id FROM Tasks WHERE task = '{}'", task))
             .expect("Could not query for the task's id from the database!")
@@ -443,11 +443,11 @@ pub mod back {
             .unwrap()
             .map(|res| {
                 let id = res[0].as_integer().unwrap();
-                id as IdIntType
+                id as IdType
             })
         }
     
-        fn insert_task_into_the_db(&mut self, task: &str, todo_id: IdIntType) -> Result<(), sqlite::Error> {
+        fn insert_task_into_the_db(&mut self, task: &str, todo_id: IdType) -> Result<(), sqlite::Error> {
             self.db.exec(&format!("INSERT INTO Tasks(task, todo_id) VALUES('{}', {})", task, todo_id))
         }
     
@@ -473,7 +473,7 @@ pub mod back {
         }
     
         /// Returns a task of the database if found
-        pub fn get_task(&mut self, task_id: IdIntType) -> Option<Task> {
+        pub fn get_task(&mut self, task_id: IdType) -> Option<Task> {
             self.db
             .select_query(&format!("SELECT task, date_added, date_completed FROM Tasks WHERE task_id = {}", task_id))
             .unwrap()
