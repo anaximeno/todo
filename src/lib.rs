@@ -59,6 +59,16 @@ mod tests {
         art.add_task("check", "test-todo").unwrap();
         assert_eq!(art.get_task(1).unwrap().task(), "check");
     }
+
+    #[test]
+    fn test_get_todo_with_tasks() {
+        let mut art = Artisan::new(":memory:");
+        art.add_todo("test", "list of my test items").unwrap();
+        art.add_task("test insertion 1", "test").unwrap();
+        art.add_task("test insertion 2", "test").unwrap();
+        let todos = art.get_todo_with_tasks("test").unwrap();
+        assert_eq!(todos.number_of_tasks(), 2);
+    }
 }
 
 
@@ -396,6 +406,35 @@ pub mod back {
             })
         }
 
+        pub fn get_todo_with_tasks(&mut self, name: &str) -> Option<Todo> {
+            if let Some(mut todo) = self.get_todo(name) {
+                let mut cursor = self.db
+                .select_query(&format!(
+                    "SELECT task_id, task, date_added, date_completed
+                    FROM Tasks WHERE todo_id = {}", todo.id()
+                ))
+                .unwrap();
+                while let Some(res) = cursor.next().unwrap() {
+                    let task_id = res[0].as_integer().unwrap();
+                    let task = res[1].as_string().unwrap();
+                    let date_added = res[2].as_string().unwrap();
+                    let status = match res[3].as_string() {
+                        Some(date) => Status::from(date),
+                        None => Status::Todo };
+                    todo.add_task(Task::with_status(
+                        task_id as IdIntType,
+                        task,
+                        date_added,
+                        status
+                    ));
+                }
+                Some(todo)
+            } else {
+                None
+            }
+            
+        }
+
         pub fn get_task_id(&mut self, task: &str) -> Option<IdIntType> {
             self.db
             .select_query(&format!("SELECT task_id FROM Tasks WHERE task = '{}'", task))
@@ -414,18 +453,20 @@ pub mod back {
     
         /// Add a new task to the database
         pub fn add_task(&mut self, task: &str, todo_name: &str) -> Result<(), &str> {
-            if let Some(todo) = self.get_todo(todo_name) {
+            if let Some(todo_id) = self.get_todo_id(todo_name) {
                 let task_id = self.get_task_id(task);
     
                 if let Some(id) = task_id {
                     return Err("Task added more than one time to the todo!");
                 }
     
-                if let Err(_) = self.insert_task_into_the_db(task, *todo.id()) {
+                if let Err(_) = self.insert_task_into_the_db(task, todo_id) {
                     return Err("Error inserting the task into the Database!");
                 }
             } else {
-                self.add_todo(todo_name, "").unwrap();
+                if let Err(_) = self.add_todo(todo_name, "") {
+                    return Err("Error trying to add todo to the database!");
+                }
                 self.add_task(task, todo_name) ? ;
             }
             Ok(())
