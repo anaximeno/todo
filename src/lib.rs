@@ -79,6 +79,15 @@ mod tests {
         art.delete_task(task_id).unwrap();
         assert_eq!(art.get_task_id(&task), None);
     }
+
+    #[test]
+    fn test_delete_todo() {
+        let mut art = Artisan::new(":memory:");
+        art.add_todo("test", "test todo deletion").unwrap();
+        let todo_id = art.get_todo_id("test").unwrap();
+        art.delete_todo(todo_id).unwrap();
+        assert_eq!(art.get_todo_id("test"), None);
+    }
 }
 
 
@@ -506,6 +515,10 @@ pub mod back {
 
         pub fn delete_task(&mut self, task_id: IdType) -> Result<(), sqlite::Error> {
             self.db.exec(&format!("DELETE FROM Tasks WHERE task_id = {}", task_id))
+        }
+
+        pub fn delete_todo(&mut self, todo_id: IdType) -> Result<(), sqlite::Error> {
+            self.db.exec(&format!("DELETE FROM Todos WHERE todo_id = {}", todo_id))
         }
     }
 }
