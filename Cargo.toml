@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 sqlite = "~0.26"
+clap = { version = "3.1.18", features = ["derive"] }
