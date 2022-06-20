@@ -265,6 +265,10 @@ pub mod core {
             let index = self.get_task_index(taskid);
             if let Some(idx) = index { self.tasks.get_mut(idx) } else { None }
         }
+
+        pub fn number_of_tasks(&self) -> usize {
+            self.tasks.len()
+        }
     }
 }
 
