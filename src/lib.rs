@@ -694,6 +694,10 @@ pub mod back {
             if let Some(mut todos) = self.get_all_todos() {
                 for mut todo in &mut todos {
                     if let Some(tasks) = self.get_all_tasks_from_todo(*todo.id()) {
+                        /**
+                         * NOTE: Add a method to add tasks directly, to avoid using loop
+                         * down here!
+                         */
                         for task in tasks {
                             todo.add_task(task);
                         }
