@@ -323,6 +323,10 @@ pub mod core {
         pub fn number_of_tasks(&self) -> usize {
             self.tasks.len()
         }
+
+        pub fn get_task_at_index(&self, index: usize) -> Option<&Task> {
+            self.tasks.get(index)
+        }
     }
 }
 
