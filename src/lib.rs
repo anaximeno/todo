@@ -140,7 +140,7 @@ pub mod core {
         fn from(date_completed: T) -> Self {
             Status::Done(String::from(date_completed.as_ref()))
         }
-    }  
+    }
 
     #[derive(Debug, PartialEq)]
     /// A task is something the user
@@ -335,6 +335,22 @@ pub mod back {
 
     use super::core::*;
 
+
+    pub trait TodoDAOLike {
+        fn get_all_todos(&self) -> Vec<Todo>;
+        fn update_todo(&self, todo_id: IdType, todo: Todo) -> Result<(), sqlite::Error>;
+        fn delete_todo(&self, todo_id: IdType) -> Result<(), sqlite::Error>;
+        fn add_todo(&self, todo: Todo) -> Result<(), &str>;
+    }
+
+    pub trait TaskDAOLike {
+        fn get_all_tasks(&self) -> Vec<Task>;
+        fn get_all_tasks_from_todo(&self, todo_id: IdType) -> Vec<Task>;
+        fn update_task(&self, task_id: IdType, task: Task) -> Result<(), sqlite::Error>;
+        fn delete_task(&self, task_id: IdType) -> Result<(), sqlite::Error>;
+        fn add_task(&self, task: Task) -> Result<(), &str>;
+    }
+
     use sqlite::{
         self,
         Connection
@@ -344,6 +360,11 @@ pub mod back {
     struct Database {
         path: String,
         conn: Connection
+    }
+
+    /// Data Access Object for the Todo Database
+    struct TodoDatabaseDAO {
+        db: Database
     }
 
     /// Responsible for interations
@@ -384,6 +405,40 @@ pub mod back {
             } else {
                 Err("Error executing the query!")
             }
+        }
+    }
+
+    impl TodoDatabaseDAO {
+        fn new(db_path: &str) -> Self {
+            let this = Self{db: Database::from(db_path)};
+            this.init_db().expect("Error Initializing the DB!");
+            this
+        }
+
+        /// Initializes the sqlite database with the default relations,
+        /// if not already created.
+        fn init_db(&self) -> Result<(), sqlite::Error> {
+            self.db.exec("
+            CREATE TABLE IF NOT EXISTS Todos(
+                todo_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT NOT NULL
+            );") ? ;
+            self.db.exec("
+            CREATE TABLE IF NOT EXISTS Tasks(
+                task_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                task TEXT NOT NULL,
+                todo_id INTEGER,
+                date_added DATETIME NOT NULL DEFAULT CURRENT_DATE,
+                date_completed DATETIME,
+                FOREIGN KEY (todo_id) REFERENCES Todos(todo_id) ON DELETE SET NULL
+            );") ? ;
+            Ok(())
+        }
+
+        /// Returns a reference to the path of the db
+        pub fn get_db_path(&self) -> &String {
+            self.db.path()
         }
     }
     
