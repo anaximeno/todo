@@ -341,6 +341,11 @@ pub mod core {
             self.description.as_ref()
         }
 
+        /// Sets the tasklist to another tasklisr
+        pub fn set_tasks(&mut self, tasks: Vec<Task>) {
+            self.tasks = tasks;
+        }
+
         /// Adds a new task to the tasklist.
         pub fn add_task(&mut self, task: Task) -> Result<(), TaskInsertionErr> {
             if let Some(_) = self.get_task_index(*task.id()) {
