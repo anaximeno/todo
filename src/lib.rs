@@ -164,7 +164,6 @@ mod tests {
     }
 }
 
-
 pub mod core {
     #![allow(unused)]
 
@@ -406,7 +405,7 @@ pub mod back {
         fn get_task_by_id(&mut self, task_id: IdType) -> Option<Task>;
         fn update_task(&mut self, task_id: IdType, task: &str) -> Result<(), sqlite::Error>;
         fn delete_task(&mut self, task_id: IdType) -> Result<(), sqlite::Error>;
-        fn add_task(&mut self, task: &str, todo_name: &str) -> Result<(), &str>;
+        fn add_task(&mut self, task: &str, todo_name: &str) -> Result<(), sqlite::Error>;
     }
 
     /// Full todo app database DAO trait
@@ -563,13 +562,18 @@ pub mod back {
         }
     }
 
+    fn gen_sqlite_err(message: &str, code: Option<isize>) -> sqlite::Error {
+        let message = Some(String::from(message));
+        sqlite::Error{message, code}
+    }
+
     impl TaskDAOLike for TodoDatabaseDAO {
-        fn add_task(&mut self, task: &str, todo_name: &str) -> Result<(), &str> {
+        fn add_task(&mut self, task: &str, todo_name: &str) -> Result<(), sqlite::Error> {
             if let Some(todo) = self.get_todo_by_name(todo_name) {
                 let task_id = self.get_task_id_from_db(task);
 
                 if let Some(id) = task_id {
-                    return Err("Task added more than one time to the todo!");
+                    return Err(gen_sqlite_err("Task id added more than once", Some(1)));
                 }
 
                 let result = self.db.exec(
@@ -577,11 +581,11 @@ pub mod back {
                 );
     
                 if let Err(_) = result {
-                    return Err("Error inserting the task into the Database!");
+                    return Err(gen_sqlite_err("Error inserting a task into the Database!", Some(1)));
                 }
             } else {
                 if let Err(_) = self.add_todo(todo_name, None) {
-                    return Err("Error trying to add todo to the database!");
+                    return Err(gen_sqlite_err("Error trying to add todo to the database!", Some(1)));
                 }
                 self.add_task(task, todo_name) ? ;
             }
