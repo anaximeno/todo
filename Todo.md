@@ -5,5 +5,5 @@
 * [ ] `todo show <name:taskid?>`
 * [ ] `todo drop <name:taskid?>`
 * [ ] `todo done <name:taskid?>`
-* [ ] `todo update <name> <new-name> -d ["new description"]`
+* [ ] `todo update <name> -n <new-name> -d ["new description"]`
 * [ ] `todo update task <taskid> "new task"`
