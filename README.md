@@ -1,6 +1,6 @@
 # ToDo
 
-Basically a command-line todo application.
+A basic command-line todo application.
 
 ## Description
 
