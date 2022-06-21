@@ -1,5 +1,26 @@
 use todo::back::*;
 
+use sqlite;
+
+use clap::{
+    Command,
+    ArgMatches,
+    Arg,
+};
+
+macro_rules! print_err {
+    ($msg:tt) => {
+        println!("Err: {}", $msg)
+    };
+
+    ($msg:tt, $exit_code:expr) => {
+        println!("Err: {}", $msg);
+        // TODO: Check if $exit_code is an
+        // integer type.
+        std::process::exit($exit_code);
+    };
+}
+
 /// Represents the todo application
 struct App {
     name: String,
