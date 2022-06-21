@@ -4,7 +4,7 @@ A basic command-line todo application.
 
 ## Description
 
-It uses sqlite to store the todos from the user and supports operation to add, remove, read, or update any task or todo list added to the app.
+It uses sqlite to store the todos from the user and supports operation to add, remove, read, or update any task or todo added to the app.
 
 <!--
 ## Visuals
