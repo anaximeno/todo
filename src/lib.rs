@@ -691,7 +691,7 @@ pub mod back {
         fn get_todo_with_all_tasks(&mut self, todo_id: IdType) -> Option<Todo> {
             if let Some(mut todo) = self.get_todo_by_id(todo_id) {
                 if let Some(tasks) = self.get_all_tasks_from_todo(todo_id) {
-                    for task in tasks { todo.add_task(task); }
+                    todo.set_tasks(tasks);
                 }
                 Some(todo)
             } else {
@@ -703,13 +703,7 @@ pub mod back {
             if let Some(mut todos) = self.get_all_todos() {
                 for mut todo in &mut todos {
                     if let Some(tasks) = self.get_all_tasks_from_todo(*todo.id()) {
-                        /**
-                         * NOTE: Add a method to add tasks directly, to avoid using loop
-                         * down here!
-                         */
-                        for task in tasks {
-                            todo.add_task(task);
-                        }
+                        todo.set_tasks(tasks);
                     }
                 }
                 Some(todos)
