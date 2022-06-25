@@ -94,7 +94,7 @@ mod tests {
     fn test_update_task() {
         let mut dao = TodoDatabaseDAO::new(":memory:");
         dao.add_task("test tart", "test").unwrap();
-        dao.update_task(1, "test task").unwrap();
+        dao.update_task(1, TaskUpdate::Task("test task".into())).unwrap();
         let task = dao.get_task_by_id(1).unwrap();
         assert_eq!(task.task(), "test task");
     }
@@ -407,7 +407,7 @@ pub mod back {
         fn get_all_tasks(&mut self) -> Option<Vec<Task>>;
         fn get_task_id_from_db(&mut self, task: &str) -> Option<IdType>;
         fn get_task_by_id(&mut self, task_id: IdType) -> Option<Task>;
-        fn update_task(&mut self, task_id: IdType, task: &str) -> Result<(), sqlite::Error>;
+        fn update_task(&mut self, task_id: IdType, update: TaskUpdate) -> Result<(), sqlite::Error>;
         fn delete_task(&mut self, task_id: IdType) -> Result<(), sqlite::Error>;
         fn add_task(&mut self, task: &str, todo_name: &str) -> Result<(), sqlite::Error>;
     }
@@ -417,6 +417,18 @@ pub mod back {
         fn get_all_tasks_from_todo(&mut self, todo_id: IdType) -> Option<Vec<Task>>;
         fn get_todo_with_all_tasks(&mut self, todo_id: IdType) -> Option<Todo>;
         fn get_all_todos_with_all_tasks(&mut self) -> Option<Vec<Todo>>;
+    }
+
+    /// Type of updates that can be made on a task
+    pub enum TaskUpdate {
+        Task(String),
+        TaskStatus(TaskUpdateStatus)
+    }
+
+    /// This is different from task status since it doesn't need
+    /// to add information on the done option.
+    pub enum TaskUpdateStatus {
+        Todo, Done
     }
     
     /// Data Access Object for the Todo Database
@@ -651,8 +663,24 @@ pub mod back {
             }
         }
 
-        fn update_task(&mut self, task_id: IdType, task: &str) -> Result<(), sqlite::Error> {
-            self.db.exec(&format!("UPDATE Tasks SET task = '{}' WHERE task_id = {}", task, task_id))
+        fn update_task(&mut self, task_id: IdType, update: TaskUpdate) -> Result<(), sqlite::Error> {
+            match update {
+                TaskUpdate::Task(new_task) => {
+                    self.db.exec(&format!("UPDATE Tasks SET task = '{}' WHERE task_id = {}", new_task, task_id))
+                },
+                TaskUpdate::TaskStatus(new_status) => {
+                    match new_status {
+                        TaskUpdateStatus::Todo => {
+                            self.db.exec(&format!("UPDATE Tasks SET date_completed = null WHERE task_id = {}", task_id))
+                        },
+                        TaskUpdateStatus::Done => {
+                            self.db.exec(&format!("UPDATE Tasks SET date_completed = CURRENT_DATE WHERE task_id = {}", task_id))
+                        }
+                    }
+                },
+                _ => Err(gen_sqlite_err("Unimplemented task update operation received!", None))
+            }
+            
         }
 
         fn delete_task(&mut self, task_id: IdType) -> Result<(), sqlite::Error> {
