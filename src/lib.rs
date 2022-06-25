@@ -172,7 +172,7 @@ pub mod core {
         fmt
     };
 
-    /// The type of the id's used on the program.
+    /// The type of the IDs used on the program.
     pub type IdType = u64;
 
     #[derive(Debug, PartialEq)]
@@ -192,7 +192,8 @@ pub mod core {
 
     #[derive(Debug, PartialEq)]
     /// A task is something the user
-    /// wants to do.
+    /// wants or have to do. They are stored
+    /// inside the Todos.
     pub struct Task {
         task_id: IdType,
         task: String,
@@ -201,7 +202,7 @@ pub mod core {
     }
 
     #[derive(Debug, PartialEq)]
-    /// Todo structure used to store
+    /// Todo is a structure used to store
     /// a set of task to be done.
     pub struct Todo {
         todo_id: IdType,
@@ -211,14 +212,13 @@ pub mod core {
     }
 
     #[derive(Debug)]
-    /// This error may be returned if one task is inserted
-    /// more than one time (repeating taskid) on the list.
+    /// This error may be returned if one task been inserted
+    /// more than once inside the same Todo.
     pub struct TaskInsertionErr {
         details: String
     }
 
     impl TaskInsertionErr {
-        
         fn new() -> Self {
             Self{details: "Task id was inserted more than once!".into()}
         }
@@ -245,14 +245,13 @@ pub mod core {
     }
 
     impl Task {
-        /// Creates a new task by determining the id and the task,
-        /// others fields are set to default.
+        /// Creates a new Task.
         pub fn new(task_id: IdType, task: &str) -> Self {
             let task = String::from(task);
             Self{task_id, task, date_added: None, status: Status::Todo}
         }
 
-        /// Creates a new task with description.
+        /// Creates a new task with the date it was added.
         pub fn with_date(task_id: IdType, task: &str, date_added: &str) -> Self {
             let task = String::from(task);
             let date_added = String::from(date_added);
@@ -413,7 +412,7 @@ pub mod back {
         fn add_task(&mut self, task: &str, todo_name: &str) -> Result<(), sqlite::Error>;
     }
 
-    /// Full todo app database DAO trait
+    /// The complete todo app database DAO trait
     pub trait TodoDatabaseDAOLike: TodoDAOLike + TaskDAOLike {
         fn get_all_tasks_from_todo(&mut self, todo_id: IdType) -> Option<Vec<Task>>;
         fn get_todo_with_all_tasks(&mut self, todo_id: IdType) -> Option<Todo>;
