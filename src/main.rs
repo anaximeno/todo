@@ -48,17 +48,23 @@ fn parse_args(app_name: &str, app_version: &str) -> ArgMatches {
                             .help("The task to be added to the todo list")
                             .takes_value(true)
                             .multiple_occurrences(true)
-                            .multiple_values(true)                    
+                            .multiple_values(true)
                     )
                     .arg(
                         Arg::new("description")
                             .short('d')
                             .long("desc")
                             .help("The Description of the todo")
-                            .takes_value(true)   
+                            .takes_value(true)
                     )
             ).subcommand(
                 Command::new("done")
+                    .arg(
+                        Arg::new("ref")
+                        .takes_value(true)
+                        .required(true)
+                        .help("References the todo or tasks. Usage \"todoname:tasknumber\" e.g. \"test:1\"")
+                    )
             ).get_matches()
 }
 
@@ -95,7 +101,7 @@ impl App {
     }
 
     /// Run main routine
-    fn run(&mut self) {
+    pub fn run(&mut self) {
         let args = parse_args(self.name(), self.version());
 
         match args.subcommand() {
@@ -122,6 +128,24 @@ impl App {
 
                 if let Some(todo) = self.dao.get_todo_with_all_tasks(1) {
                     println!("{:#?}", todo);
+                }
+            },
+            Some(("done", done_matches)) => {
+                let reference = done_matches.get_one::<String>("ref").unwrap();
+                let splitted_ref: Vec<_> = reference.split(':').collect();
+
+                if splitted_ref.len() == 1 {
+                    // Only todo was given
+                    let todo_name = splitted_ref[0];
+                    let todo_id: &todo::core::IdType = self.dao.get_todo_by_name(todo_name).unwrap().id();
+                    if let Some(todo) = self.dao.get_todo_with_all_tasks(*todo_id) {
+                        println!("Setting all tasks on '{}' as done", todo.name());
+                    }
+                } else if splitted_ref.len() == 2 {
+                    // Todo and task number
+                } else {
+                    let msg = format!("Invalid ref given: '{}'", reference);
+                    printerr!(msg, 1);
                 }
             },
             _ => ()
