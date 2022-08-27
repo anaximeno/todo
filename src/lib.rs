@@ -163,6 +163,23 @@ mod tests {
          * */
         assert!(tasks.len() >= 3);
     }
+
+    #[test]
+    fn test_todo_tasks() {
+        Todo::init_table().unwrap();
+        Task::init_table().unwrap();
+
+        let todo1 = Todo::add("test tasks".into(), None).unwrap();
+        let todo2 = Todo::add("test tasks again".into(), None).unwrap();
+
+        Task::add("test task model 1 times".into(), *todo1.id()).unwrap();
+        Task::add("test task model 2 times".into(), *todo1.id()).unwrap();
+        Task::add("test task model once again".into(), *todo2.id()).unwrap();
+
+        let todo1_tasks = todo1.tasks();
+
+        assert_eq!(todo1_tasks.len(), 2);
+    }
 }
 
 pub mod prelude {
@@ -622,8 +639,33 @@ mod data_access_layer {
         }
 
         pub fn tasks(&self) -> Vec<Task> {
-            // TODO
-            Vec::new()
+            let mut tasks: Vec<Task> = Vec::new();
+
+            if TodoDAO::is_table_initialized() && TaskDAO::is_table_initialized() {
+                let query = format!(
+                    "SELECT id, what, todo_id, created_at, updated_at, completed_at FROM {} WHERE todo_id = {}",
+                    TaskDAO::table_name(), self.id()
+                );
+
+                if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
+                    while let Some(result) = cursor.next().unwrap() {
+                        let id: IdType = result[0].as_integer().unwrap() as IdType;
+                        let what = result[1].as_string().unwrap();
+                        let todo_id = result[2].as_integer().unwrap() as IdType;
+                        let created_at = result[3].as_string().unwrap();
+                        let updated_at = result[4].as_string().unwrap();
+                        let status = result[5].as_string()
+                                                      .map(|date| Status::Done(date.into()))
+                                                      .unwrap_or(Status::Todo);
+
+                        let task = Task::new(id, todo_id, what, created_at, updated_at, status);
+
+                        tasks.push(task);
+                    }
+                }
+            }
+
+            return tasks;
         }
 
         pub fn init_table() -> Result<(), sqlite::Error>{
