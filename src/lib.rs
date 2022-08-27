@@ -1,6 +1,6 @@
-// #[cfg(test)]
-// mod tests {
-// }
+#![allow(unused)]
+
+
 
 pub mod prelude {
     pub use super::core::*;
@@ -241,7 +241,7 @@ mod data_access_layer {
     use super::database::*;
     use super::core::*;
 
-    pub trait DAO: DatabaseConnector {
+    trait DAO: DatabaseConnector {
         type ObjType;
 
         fn all() -> Vec<Self::ObjType>;
@@ -249,13 +249,12 @@ mod data_access_layer {
         fn add(obj: Self::ObjType) -> Result<Self::ObjType, InternalError>;
         fn update(obj: Self::ObjType) -> Result<Self::ObjType, InternalError>;
         fn delete(id: IdType) -> Result<(), InternalError>;
-
-        fn init_table() {
-            <Self as DatabaseConnector>::init_table();
-        }
     }
 
-    impl DatabaseConnector for Todo {
+    struct TodoDAO;
+    struct TaskDAO;
+
+    impl DatabaseConnector for TodoDAO {
         fn table_name() -> &'static str {
             "todos"
         }
@@ -274,7 +273,7 @@ mod data_access_layer {
         }
     }
 
-    impl DAO for Todo {
+    impl DAO for TodoDAO {
         type ObjType = Todo;
 
         fn all() -> Vec<Self::ObjType> {
@@ -284,7 +283,7 @@ mod data_access_layer {
                 let query = format!("SELECT id, name, description FROM {}", Self::table_name());
 
                 if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
-                    while let Some(mut result) = cursor.next().unwrap() {
+                    while let Some(result) = cursor.next().unwrap() {
                         let id: IdType = result[0].as_integer().unwrap() as IdType;
                         let name = result[1].as_string().unwrap();
                         let description = result[2].as_string().map(|desc| String::from(desc));
@@ -330,7 +329,7 @@ mod data_access_layer {
                 return Err(InternalError::table_not_initialized(&Self::table_name()));
             }
 
-            let todo = <Self as DAO>::find(*obj.id()) ? ;
+            let todo = Self::find(*obj.id()) ? ;
 
             /* Here what can be changed currently are the: name and description. */
 
@@ -364,13 +363,13 @@ mod data_access_layer {
                 }
             }
 
-            <Self as DAO>::find(*obj.id())
+            Self::find(*obj.id())
         }
 
         fn add(obj: Self::ObjType) -> Result<Todo, InternalError> {
             if !Self::is_table_initialized() {
                 return Err(InternalError::table_not_initialized(&Self::table_name()));
-            } else if let Ok(todo) = <Self as DAO>::find(*obj.id()) {
+            } else if let Ok(todo) = Self::find(*obj.id()) {
                 let details = format!("todo with id = {}, is already in use in the table", obj.id());
                 return Err(InternalError::new(&details));
             } else {
@@ -415,7 +414,7 @@ mod data_access_layer {
         }
 
         fn delete(id: IdType) -> Result<(), InternalError> {
-            let res = <Self as DAO>::find(id) ? ;
+            let res = Self::find(id) ? ;
             let statement = format!("DELETE FROM {} WHERE id = {};", Self::table_name(), id);
             let res = DB.lock().unwrap().exec_sttmt(&statement);
             res.map_err(|e| InternalError::new(&e.to_string()))
@@ -424,7 +423,7 @@ mod data_access_layer {
 
     impl Todo {
         fn all() -> Vec<Todo> {
-            <Todo as DAO>::all()
+            TodoDAO::all()
         }
 
         fn add(name: String, description: Option<String>) -> Result<Todo, InternalError> {
@@ -434,11 +433,11 @@ mod data_access_layer {
 
             let todo = Todo::new(id, name, description, created_at.into(), updated_at.into());
 
-            <Todo as DAO>::add(todo)
+            TodoDAO::add(todo)
         }
 
         fn update(id: IdType, new_name: Option<String>, new_description: Option<String>) -> Result<Todo, InternalError> {
-            let mut todo = <Todo as DAO>::find(id) ? ;
+            let mut todo = TodoDAO::find(id) ? ;
 
             if let Some(name) = new_name {
                 todo.set_name(&name);
@@ -448,15 +447,15 @@ mod data_access_layer {
                 todo.set_description(&description);
             }
 
-            <Todo as DAO>::update(todo)
+            TodoDAO::update(todo)
         }
 
         fn find(id: IdType) -> Result<Todo, InternalError> {
-            <Todo as DAO>::find(id)
+            TodoDAO::find(id)
         }
 
         fn delete(id: IdType) -> Result<(), InternalError> {
-            <Todo as DAO>::delete(id)
+            TodoDAO::delete(id)
         }
 
         fn tasks(&self) -> Vec<Task> {
@@ -464,12 +463,13 @@ mod data_access_layer {
             Vec::new()
         }
 
-        fn init_table() {
-            <Self as DAO>::init_table();
+        fn init_table() -> Result<(), sqlite::Error>{
+            TodoDAO::init_table() ? ;
+            Ok(())
         }
     }
 
-    impl DatabaseConnector for Task {
+    impl DatabaseConnector for TaskDAO {
         fn table_name() -> &'static str {
             "tasks"
         }
@@ -490,7 +490,7 @@ mod data_access_layer {
         }
     }
 
-    impl DAO for Task {
+    impl DAO for TaskDAO {
         type ObjType = Task;
 
         fn all() -> Vec<Self::ObjType> {
@@ -555,11 +555,11 @@ mod data_access_layer {
         fn add(obj: Self::ObjType) -> Result<Self::ObjType, InternalError> {
             if !Self::is_table_initialized() {
                 return Err(InternalError::table_not_initialized(&Self::table_name()));
-            } else if let Ok(task) = <Self as DAO>::find(*obj.id()) {
+            } else if let Ok(task) = Self::find(*obj.id()) {
                 let details = format!("task with id = {}, is already in use in the table", obj.id());
                 return Err(InternalError::new(&details));
             } else {
-                let todo = <Todo as DAO>::find(*obj.todo_id()) ? ;
+                let todo = TodoDAO::find(*obj.todo_id()) ? ;
 
                 let todo_id = todo.id();
                 let what = obj.what();
@@ -611,7 +611,7 @@ mod data_access_layer {
                 return Err(InternalError::table_not_initialized(&Self::table_name()));
             }
 
-            let task = <Self as DAO>::find(*obj.id()) ? ;
+            let task = Self::find(*obj.id()) ? ;
 
             // Here what can be changed currently are: what, and status (actually completed_at date).
 
@@ -646,28 +646,28 @@ mod data_access_layer {
                 }
             }
 
-            <Self as DAO>::find(*obj.id())
+            Self::find(*obj.id())
         }
 
         fn delete(id: IdType) -> Result<(), InternalError> {
-            let res = <Self as DAO>::find(id) ? ;
-            let statement = format!("DELETE FROM {} WHERE id = {};", Self::table_name(), id);
+            let task = Self::find(id) ? ;
+            let statement = format!("DELETE FROM {} WHERE id = {};", Self::table_name(), task.id());
             let res = DB.lock().unwrap().exec_sttmt(&statement);
-            res.map_err(|e| InternalError::new(e.description()))
+            res.map_err(|e| InternalError::new(&e.to_string()))
         }
     }
 
     impl Task {
         fn all() -> Vec<Task> {
-            <Task as DAO>::all()
+            TaskDAO::all()
         }
 
         fn find(id: IdType) -> Result<Task, InternalError> {
-            <Task as DAO>::find(id)
+            TaskDAO::find(id)
         }
 
         fn delete(id: IdType) -> Result<(), InternalError> {
-            <Task as DAO>::delete(id)
+            TaskDAO::delete(id)
         }
 
         fn add(what: String, todo_id: IdType) -> Result<Task, InternalError> {
@@ -678,11 +678,11 @@ mod data_access_layer {
 
             let task = Task::new(id, todo_id, &what, created_at, updated_at, status);
 
-            <Task as DAO>::add(task)
+            TaskDAO::add(task)
         }
 
         fn update(id: IdType, what_new: Option<String>, new_status: Option<Status>) -> Result<Task, InternalError> {
-            let mut task = <Task as DAO>::find(id) ? ;
+            let mut task = TaskDAO::find(id) ? ;
 
             if let Some(what) = what_new {
                 task.set_what(&what);
@@ -692,7 +692,7 @@ mod data_access_layer {
                 task.set_status(status);
             }
 
-            <Task as DAO>::update(task)
+            TaskDAO::update(task)
         }
 
         fn todo(&self) -> Option<Todo> {
@@ -700,9 +700,10 @@ mod data_access_layer {
             None
         }
 
-        fn init_table() {
-            <Todo as DAO>::init_table();
-            <Self as DAO>::init_table();
+        fn init_table() -> Result<(), sqlite::Error> {
+            TodoDAO::init_table() ? ;
+            TaskDAO::init_table() ? ;
+            Ok(())
         }
     }
 }
