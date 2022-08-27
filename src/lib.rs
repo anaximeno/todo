@@ -285,7 +285,7 @@ mod core {
         }
 
         pub fn table_not_initialized(name: &str) -> Self {
-            let details = format!("table {} was not initialed!", name);
+            let details = format!("table '{}' was not initialed!", name);
             Self::new(&details)
         }
     }
