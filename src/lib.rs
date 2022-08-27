@@ -7,7 +7,101 @@ pub mod prelude {
     pub use super::data_access_layer::*;
 }
 
+mod database {
+    use sqlite::{self, Connection};
+
+    /// Database handler for the aplication
+    pub struct Database {
+        path: String,
+        connection: Connection
+    }
+
+    impl From<&str> for Database {
+        /// Initializes the database from a given path
+        fn from(path: &str) -> Self {
+            Self::new(path)
+        }
+    }
+
+    impl Database {
+        pub fn new(path: &str) -> Self {
+            let path = String::from(path);
+            let connection = Connection::open(&path).unwrap();
+            Self{path, connection}
+        }
+
+        /// References the path of the db
+        pub fn path(&self) -> &String {
+            &self.path
+        }
+
+        /// References the connection to the database
+        pub fn connection(&self) -> &Connection {
+            &self.connection
+        }
+
+        /// Executes a query command into the database
+        pub fn exec_sttmt(&self, statement: &str) -> Result<(), sqlite::Error> {
+            self.connection().execute(statement)
+        }
+
+        /// Executes a select query and returns a cursor
+        pub fn select_query(&mut self, query: &str) -> Result<sqlite::Cursor, sqlite::Error> {
+            Ok(self.connection.prepare(query)?.into_cursor())
+        }
+
+        pub fn create_table(&mut self, sttmt: &str) -> Result<(), sqlite::Error> {
+            let statement = format!("CREATE TABLE IF NOT EXISTS {};", sttmt);
+            self.exec_sttmt(&statement)
+        }
+    }
+
+    pub trait DatabaseConnector {
+        fn table_name() -> &'static str;
+        fn init_table() -> Result<(), sqlite::Error>;
+
+        fn is_table_initialized() -> bool {
+            let statement = format!("SELECT * FROM {} LIMIT 1;", Self::table_name());
+            DB.exec_sttmt(&statement).is_ok()
+        }
+    }
+
+    // TODO: create a mutex
+    pub static DB: Database = Database::new(":memory:");
+}
+
 mod core {
+    use std::fmt::{self, Display};
+    pub use std::error::Error;
+
+    #[derive(Debug)]
+    pub struct InternalError {
+        details: String
+    }
+
+    impl InternalError {
+        pub fn new(details: &str) -> Self {
+            Self{ details: String::from(details) }
+        }
+
+        pub fn table_not_initialized(name: &str) -> Self {
+            let details = format!("table {} was not initialed!", name);
+            Self::new(&details)
+        }
+    }
+
+    impl Display for InternalError {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.details)
+        }
+    }
+
+    impl Error for InternalError {
+        fn description(&self) -> &str {
+            &self.details
+        }
+    }
+
     /// The type of the IDs used on the program.
     pub type IdType = u64;
 
@@ -103,14 +197,8 @@ mod core {
     }
 
     impl Todo {
-        pub fn new(id: IdType, name: &str, description: Option<&str>, created_at: &str, updated_at: &str) -> Self {
-            Self {
-                id,
-                name: String::from(name),
-                description: description.map(|d| String::from(d)),
-                created_at: String::from(created_at),
-                updated_at: String::from(updated_at)
-            }
+        pub fn new(id: IdType, name: String, description: Option<String>, created_at: String, updated_at: String) -> Self {
+            Self { id, name, description, created_at, updated_at }
         }
 
         /// Sets a new value to the name.
@@ -144,106 +232,9 @@ mod core {
     }
 }
 
-mod database {
-    use sqlite::{self, Connection};
-
-    /// Database handler for the aplication
-    pub struct Database {
-        path: String,
-        conn: Connection
-    }
-
-    impl From<&str> for Database {
-        /// Initializes the database from a given path
-        fn from(path: &str) -> Self {
-            let path = String::from(path);
-            let conn = Connection::open(&path).unwrap();
-            Self{path, conn}
-        }
-    }
-
-    impl Database {
-        /// References the path of the db
-        pub fn path(&self) -> &String {
-            &self.path
-        }
-
-        /// References the connection to the database
-        pub fn connection(&self) -> &Connection {
-            &self.conn
-        }
-
-        /// Executes a query command into the database
-        pub fn exec_sttmt(&self, statement: &str) -> Result<(), sqlite::Error>
-        {
-            self.connection().execute(statement)
-        }
-
-        /// Executes a select query and returns a cursor
-        pub fn select_query(&mut self, query: &str) -> Result<sqlite::Cursor, &str>
-        {
-            if let Ok(res) = self.conn.prepare(query) {
-                Ok(res.into_cursor())
-            } else {
-                Err("Error executing the query!")
-            }
-        }
-
-        pub fn create_table(&mut self, sttmt: &str) -> Result<(), sqlite::Error>
-        {
-            let statement = format!("CREATE TABLE IF NOT EXISTS {};", sttmt);
-            self.exec_sttmt(&statement)
-        }
-    }
-
-    pub trait DatabaseConnector {
-        fn table_name() -> &'static str;
-        fn init_table() -> Result<(), sqlite::Error>;
-
-        fn is_table_initialized() -> bool {
-            let statement = format!("SELECT * FROM {} LIMIT 1;", Self::table_name());
-            DB.exec_sttmt(&statement).is_ok()
-        }
-    }
-
-    pub const DB: Database = Database::from(":memory:");
-}
-
 mod data_access_layer {
-    use std::fmt::{self, Display};
-    use std::error::Error;
-
-    use super::core::*;
     use super::database::*;
-
-
-    #[derive(Debug)]
-    pub struct InternalError {
-        details: String
-    }
-
-    impl InternalError {
-        fn new(details: &str) -> Self {
-            Self{ details: String::from(details) }
-        }
-
-        fn table_not_initialized(name: &str) -> Self {
-            let details = format!("table {} was not initialed!", name);
-            Self::new(&details)
-        }
-    }
-
-    impl Display for InternalError {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "{}", self.details)
-        }
-    }
-
-    impl Error for InternalError {
-        fn description(&self) -> &str {
-            &self.details
-        }
-    }
+    use super::core::*;
 
     trait DAO: DatabaseConnector {
         type ObjType;
@@ -280,6 +271,7 @@ mod data_access_layer {
         fn add(what: String, todo_id: IdType) -> Result<Task, InternalError>;
         fn update(id: IdType, what_new: Option<String>, new_status: Option<Status>) -> Result<Task, InternalError>;
         fn delete(id: IdType) -> Result<(), InternalError>;
+        // FIXME: change from option to normal
         fn todo(&self) -> Option<Todo>;
 
         fn init_table() {
@@ -317,14 +309,14 @@ mod data_access_layer {
             if Self::is_table_initialized() {
                 let query = format!("SELECT id, name, description FROM {}", Self::table_name());
 
-                if let Some(mut cursor) = DB.select_query(&query) {
+                if let Ok(mut cursor) = DB.select_query(&query) {
                     while let Some(mut result) = cursor.next().unwrap() {
                         let id: IdType = result[0].as_integer().unwrap() as IdType;
                         let name = result[1].as_string().unwrap();
-                        let description = result[2].as_string();
+                        let description = result[2].as_string().map(|desc| String::from(desc));
                         let created_at = result[3].as_string().unwrap();
                         let updated_at = result[4].as_string().unwrap();
-                        todos.push(Todo::new(id, name, description, created_at, updated_at))
+                        todos.push(Todo::new(id, name.into(), description, created_at.into(), updated_at.into()))
                     }
                 }
             }
@@ -342,15 +334,17 @@ mod data_access_layer {
                 Self::table_name(), id
             );
 
-            let todo: Option<Todo> = if let Some(mut cursor) = DB.select_query(&query) {
+            let todo: Option<Todo> = if let Ok(mut cursor) = DB.select_query(&query) {
                 cursor.next().unwrap().map(|t: &[sqlite::Value]| {
                     let id: IdType = t[0].as_integer().unwrap() as IdType;
                     let name = t[1].as_string().unwrap();
-                    let description = t[2].as_string();
+                    let description = t[2].as_string().map(|desc| String::from(desc));
                     let created_at = t[3].as_string().unwrap();
                     let updated_at = t[4].as_string().unwrap();
-                    Todo::new(id, name, description, created_at, updated_at)
+                    Todo::new(id, name.into(), description, created_at.into(), updated_at.into())
                 })
+            } else {
+                None
             };
 
             let details = format!("todo with id = {} was not found in the database.", id);
@@ -429,15 +423,17 @@ mod data_access_layer {
                     Self::table_name(), Self::table_name()
                 );
 
-                let todo: Option<Todo> = if let Some(mut cursor) = DB.select_query(&query) {
+                let todo: Option<Todo> = if let Ok(mut cursor) = DB.select_query(&query) {
                     cursor.next().unwrap().map(|t: &[sqlite::Value]| {
                         let id: IdType = t[0].as_integer().unwrap() as IdType;
                         let name = t[1].as_string().unwrap();
-                        let description = t[2].as_string();
+                        let description = t[2].as_string().map(|desc| String::from(desc));
                         let created_at = t[3].as_string().unwrap();
                         let updated_at = t[4].as_string().unwrap();
-                        Todo::new(id, name, description, created_at, updated_at)
+                        Todo::new(id, name.into(), description, created_at.into(), updated_at.into())
                     })
+                } else {
+                    None
                 };
 
                 todo.ok_or(InternalError::new("Could not get the todo after adding it to the database."))
@@ -448,7 +444,7 @@ mod data_access_layer {
             let res = <Self as DAO>::find(id) ? ;
             let statement = format!("DELETE FROM {} WHERE id = {};", Self::table_name(), id);
             let res = DB.exec_sttmt(&statement);
-            res.map_err(|e| InternalError::new(e.description()))
+            res.map_err(|e| InternalError::new(&e.to_string()))
         }
     }
 
@@ -459,18 +455,16 @@ mod data_access_layer {
 
         fn add(name: String, description: Option<String>) -> Result<Todo, InternalError> {
             let id: IdType = 0;
-            let _name = &name;
-            let _description = description.as_ref();
             let created_at = "CURRENT_DATE";
             let updated_at = "CURRENT_DATE";
 
-            let todo = Todo::new(id, _name, _description, created_at, updated_at);
+            let todo = Todo::new(id, name, description, created_at.into(), updated_at.into());
 
             <Todo as DAO>::add(todo)
         }
 
         fn update(id: IdType, new_name: Option<String>, new_description: Option<String>) -> Result<Todo, InternalError> {
-            let todo = <Todo as DAO>::find(id) ? ;
+            let mut todo = <Todo as DAO>::find(id) ? ;
 
             if let Some(name) = new_name {
                 todo.set_name(&name);
@@ -491,7 +485,7 @@ mod data_access_layer {
             <Todo as DAO>::delete(id)
         }
 
-        fn tasks(&mut self) -> Vec<Task> {
+        fn tasks(&self) -> Vec<Task> {
             // TODO
             Vec::new()
         }
@@ -522,12 +516,12 @@ mod data_access_layer {
         type ObjType = Task;
 
         fn all() -> Vec<Self::ObjType> {
-            let tasks: Vec<Task> = Vec::new();
+            let mut tasks: Vec<Task> = Vec::new();
 
             if Self::is_table_initialized() {
                 let query = format!("SELECT id, what, todo_id, created_at, updated_at, completed_at FROM {};", Self::table_name());
 
-                if let Some(mut cursor) = DB.select_query(&query) {
+                if let Ok(mut cursor) = DB.select_query(&query) {
                     while let Some(mut result) = cursor.next().unwrap() {
                         let mut result: &[sqlite::Value] = result;
 
@@ -545,9 +539,9 @@ mod data_access_layer {
                         tasks.push(task);
                     }
                 }
-
-                return tasks;
             }
+
+            return tasks;
         }
 
         fn find(id: IdType) -> Result<Self::ObjType, InternalError> {
@@ -560,11 +554,11 @@ mod data_access_layer {
                 Self::table_name(), id
             );
 
-            let task: Option<Task> = if let Some(mut cursor) = DB.select_query(&query) {
+            let task: Option<Task> = if let Ok(mut cursor) = DB.select_query(&query) {
                 cursor.next().unwrap().map(|t: &[sqlite::Value]| {
                     let id: IdType = t[0].as_integer().unwrap() as IdType;
                     let what = t[1].as_string().unwrap();
-                    let todo_id = t[2].as_integer().map(|id| id as IdType);
+                    let todo_id = t[2].as_integer().unwrap() as IdType;
                     let created_at = t[3].as_string().unwrap();
                     let updated_at = t[4].as_string().unwrap();
                     let status = t[5].as_string()
@@ -572,6 +566,8 @@ mod data_access_layer {
                                                     .unwrap_or(Status::Todo);
                     Task::new(id, todo_id, what, created_at, updated_at, status)
                 })
+            } else {
+                None
             };
 
             let details = format!("task with id = {} was not found in the database.", id);
@@ -581,11 +577,11 @@ mod data_access_layer {
         fn add(obj: Self::ObjType) -> Result<Self::ObjType, InternalError> {
             if !Self::is_table_initialized() {
                 return Err(InternalError::table_not_initialized(&Self::table_name()));
-            } else if let Some(task) = <Self as DAO>::find(*obj.id()) {
+            } else if let Ok(task) = <Self as DAO>::find(*obj.id()) {
                 let details = format!("task with id = {}, is already in use in the table", obj.id());
                 return Err(InternalError::new(&details));
             } else {
-                let todo = Todo::find(obj.todo_id()) ? ;
+                let todo = <Todo as DAO>::find(*obj.todo_id()) ? ;
 
                 let todo_id = todo.id();
                 let what = obj.what();
@@ -612,11 +608,11 @@ mod data_access_layer {
                     Self::table_name(), Self::table_name()
                 );
 
-                let task: Option<Todo> = if let Some(mut cursor) = DB.select_query(&query) {
+                let task: Option<Task> = if let Ok(mut cursor) = DB.select_query(&query) {
                     cursor.next().unwrap().map(|t: &[sqlite::Value]| {
                         let id: IdType = t[0].as_integer().unwrap() as IdType;
                         let what = t[1].as_string().unwrap();
-                        let todo_id = t[2].as_integer().map(|id| id as IdType);
+                        let todo_id = t[2].as_integer().unwrap() as IdType;
                         let created_at = t[3].as_string().unwrap();
                         let updated_at = t[4].as_string().unwrap();
                         let status = t[5].as_string()
@@ -624,6 +620,8 @@ mod data_access_layer {
                                                         .unwrap_or(Status::Todo);
                         Task::new(id, todo_id, what, created_at, updated_at, status)
                     })
+                } else {
+                    None
                 };
 
                 task.ok_or(InternalError::new("Could not get the task after adding it to the database."))
@@ -706,7 +704,7 @@ mod data_access_layer {
         }
 
         fn update(id: IdType, what_new: Option<String>, new_status: Option<Status>) -> Result<Task, InternalError> {
-            let task = <Task as DAO>::find(id) ? ;
+            let mut task = <Task as DAO>::find(id) ? ;
 
             if let Some(what) = what_new {
                 task.set_what(&what);
@@ -717,6 +715,11 @@ mod data_access_layer {
             }
 
             <Task as DAO>::update(task)
+        }
+
+        fn todo(&self) -> Option<Todo> {
+            // To Implement
+            None
         }
     }
 }
