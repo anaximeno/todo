@@ -9,6 +9,8 @@ pub mod prelude {
 
 mod database {
     use sqlite::{self, Connection};
+    use lazy_static::lazy_static;
+    use std::sync::Mutex;
 
     /// Database handler for the aplication
     pub struct Database {
@@ -56,18 +58,21 @@ mod database {
         }
     }
 
+
     pub trait DatabaseConnector {
         fn table_name() -> &'static str;
         fn init_table() -> Result<(), sqlite::Error>;
 
         fn is_table_initialized() -> bool {
             let statement = format!("SELECT * FROM {} LIMIT 1;", Self::table_name());
-            DB.exec_sttmt(&statement).is_ok()
+            DB.lock().unwrap().exec_sttmt(&statement).is_ok()
         }
     }
 
-    // TODO: create a mutex
-    pub static DB: Database = Database::new(":memory:");
+    lazy_static! {
+        pub static ref DB: Mutex<Database> = Mutex::new(Database::new(":memory:"));
+    }
+
 }
 
 mod core {
@@ -236,7 +241,7 @@ mod data_access_layer {
     use super::database::*;
     use super::core::*;
 
-    trait DAO: DatabaseConnector {
+    pub trait DAO: DatabaseConnector {
         type ObjType;
 
         fn all() -> Vec<Self::ObjType>;
@@ -249,37 +254,6 @@ mod data_access_layer {
             <Self as DatabaseConnector>::init_table();
         }
     }
-
-    /// Todo Data Access Object Trait
-    pub trait TodoDAO: DAO<ObjType = Todo> {
-        fn all() -> Vec<Todo>;
-        fn find(id: IdType) -> Result<Todo, InternalError>;
-        fn add(name: String, description: Option<String>) -> Result<Todo, InternalError>;
-        fn update(id: IdType, new_name: Option<String>, new_description: Option<String>) -> Result<Todo, InternalError>;
-        fn delete(id: IdType) -> Result<(), InternalError>;
-        fn tasks(&self) -> Vec<Task>;
-
-        fn init_table() {
-            <Self as DAO>::init_table();
-        }
-    }
-
-    /// Task Data Access Object Trait
-    pub trait TaskDAO: DAO<ObjType = Task> {
-        fn all() -> Vec<Task>;
-        fn find(id: IdType) -> Result<Task, InternalError>;
-        fn add(what: String, todo_id: IdType) -> Result<Task, InternalError>;
-        fn update(id: IdType, what_new: Option<String>, new_status: Option<Status>) -> Result<Task, InternalError>;
-        fn delete(id: IdType) -> Result<(), InternalError>;
-        // FIXME: change from option to normal
-        fn todo(&self) -> Option<Todo>;
-
-        fn init_table() {
-            <Todo as DAO>::init_table();
-            <Self as DAO>::init_table();
-        }
-    }
-
 
     impl DatabaseConnector for Todo {
         fn table_name() -> &'static str {
@@ -296,7 +270,7 @@ mod data_access_layer {
                 Self::table_name()
             );
 
-            DB.create_table(&sttmt)
+            DB.lock().unwrap().create_table(&sttmt)
         }
     }
 
@@ -309,7 +283,7 @@ mod data_access_layer {
             if Self::is_table_initialized() {
                 let query = format!("SELECT id, name, description FROM {}", Self::table_name());
 
-                if let Ok(mut cursor) = DB.select_query(&query) {
+                if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
                     while let Some(mut result) = cursor.next().unwrap() {
                         let id: IdType = result[0].as_integer().unwrap() as IdType;
                         let name = result[1].as_string().unwrap();
@@ -334,7 +308,7 @@ mod data_access_layer {
                 Self::table_name(), id
             );
 
-            let todo: Option<Todo> = if let Ok(mut cursor) = DB.select_query(&query) {
+            let todo: Option<Todo> = if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
                 cursor.next().unwrap().map(|t: &[sqlite::Value]| {
                     let id: IdType = t[0].as_integer().unwrap() as IdType;
                     let name = t[1].as_string().unwrap();
@@ -366,7 +340,7 @@ mod data_access_layer {
                     Self::table_name(), obj.name()
                 );
 
-                let res = DB.exec_sttmt(&statement);
+                let res = DB.lock().unwrap().exec_sttmt(&statement);
 
                 if let Err(e) = res {
                     return Err(InternalError::new(&e.to_string()));
@@ -383,7 +357,7 @@ mod data_access_layer {
                     Self::table_name(), description
                 );
 
-                let res = DB.exec_sttmt(&statement);
+                let res = DB.lock().unwrap().exec_sttmt(&statement);
 
                 if let Err(e) = res {
                     return Err(InternalError::new(&e.to_string()));
@@ -410,20 +384,20 @@ mod data_access_layer {
                     Self::table_name(), name, description
                 );
 
-                let res = DB.exec_sttmt(&statement);
+                let res = DB.lock().unwrap().exec_sttmt(&statement);
 
                 if let Err(e) = res {
                     return Err(InternalError::new(&e.to_string()));
                 }
 
                 // FIXME: Not very useful in current environmnets since if another value is added before this
-                // query, the wrong todo will be returned. Maybe consider using a mutex in the DB.
+                // query, the wrong todo will be returned. Maybe consider using a mutex in the DB.lock().unwrap().
                 let query = format!("
                     SELECT id, name, description, created_at, updated_at FROM {} WHERE id = (SELECT MAX(id) FROM {});",
                     Self::table_name(), Self::table_name()
                 );
 
-                let todo: Option<Todo> = if let Ok(mut cursor) = DB.select_query(&query) {
+                let todo: Option<Todo> = if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
                     cursor.next().unwrap().map(|t: &[sqlite::Value]| {
                         let id: IdType = t[0].as_integer().unwrap() as IdType;
                         let name = t[1].as_string().unwrap();
@@ -443,12 +417,12 @@ mod data_access_layer {
         fn delete(id: IdType) -> Result<(), InternalError> {
             let res = <Self as DAO>::find(id) ? ;
             let statement = format!("DELETE FROM {} WHERE id = {};", Self::table_name(), id);
-            let res = DB.exec_sttmt(&statement);
+            let res = DB.lock().unwrap().exec_sttmt(&statement);
             res.map_err(|e| InternalError::new(&e.to_string()))
         }
     }
 
-    impl TodoDAO for Todo {
+    impl Todo {
         fn all() -> Vec<Todo> {
             <Todo as DAO>::all()
         }
@@ -489,6 +463,10 @@ mod data_access_layer {
             // TODO
             Vec::new()
         }
+
+        fn init_table() {
+            <Self as DAO>::init_table();
+        }
     }
 
     impl DatabaseConnector for Task {
@@ -508,7 +486,7 @@ mod data_access_layer {
                 Self::table_name()
             );
 
-            DB.create_table(&sttmt)
+            DB.lock().unwrap().create_table(&sttmt)
         }
     }
 
@@ -521,7 +499,7 @@ mod data_access_layer {
             if Self::is_table_initialized() {
                 let query = format!("SELECT id, what, todo_id, created_at, updated_at, completed_at FROM {};", Self::table_name());
 
-                if let Ok(mut cursor) = DB.select_query(&query) {
+                if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
                     while let Some(mut result) = cursor.next().unwrap() {
                         let mut result: &[sqlite::Value] = result;
 
@@ -554,7 +532,7 @@ mod data_access_layer {
                 Self::table_name(), id
             );
 
-            let task: Option<Task> = if let Ok(mut cursor) = DB.select_query(&query) {
+            let task: Option<Task> = if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
                 cursor.next().unwrap().map(|t: &[sqlite::Value]| {
                     let id: IdType = t[0].as_integer().unwrap() as IdType;
                     let what = t[1].as_string().unwrap();
@@ -595,20 +573,20 @@ mod data_access_layer {
                     Self::table_name(), todo_id, what, completed_at
                 );
 
-                let res = DB.exec_sttmt(&statement);
+                let res = DB.lock().unwrap().exec_sttmt(&statement);
 
                 if let Err(e) = res {
                     return Err(InternalError::new(&e.to_string()));
                 }
 
                 // FIXME: Not very useful in current environmnets since if another value is added before this
-                // query, the wrong todo will be returned. Maybe consider using a mutex in the DB.
+                // query, the wrong todo will be returned. Maybe consider using a mutex in the DB.lock().unwrap().
                 let query = format!("
                     SELECT id, what, todo_id, created_at, updated_at, completed_at FROM {} WHERE id = (SELECT MAX(id) FROM {});",
                     Self::table_name(), Self::table_name()
                 );
 
-                let task: Option<Task> = if let Ok(mut cursor) = DB.select_query(&query) {
+                let task: Option<Task> = if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
                     cursor.next().unwrap().map(|t: &[sqlite::Value]| {
                         let id: IdType = t[0].as_integer().unwrap() as IdType;
                         let what = t[1].as_string().unwrap();
@@ -643,7 +621,7 @@ mod data_access_layer {
                     Self::table_name(), obj.what()
                 );
 
-                let res = DB.exec_sttmt(&statement);
+                let res = DB.lock().unwrap().exec_sttmt(&statement);
 
                 if let Err(e) = res {
                     return Err(InternalError::new(&e.to_string()));
@@ -661,7 +639,7 @@ mod data_access_layer {
                     Self::table_name(), completed_at
                 );
 
-                let res = DB.exec_sttmt(&statement);
+                let res = DB.lock().unwrap().exec_sttmt(&statement);
 
                 if let Err(e) = res {
                     return Err(InternalError::new(&e.to_string()));
@@ -674,12 +652,12 @@ mod data_access_layer {
         fn delete(id: IdType) -> Result<(), InternalError> {
             let res = <Self as DAO>::find(id) ? ;
             let statement = format!("DELETE FROM {} WHERE id = {};", Self::table_name(), id);
-            let res = DB.exec_sttmt(&statement);
+            let res = DB.lock().unwrap().exec_sttmt(&statement);
             res.map_err(|e| InternalError::new(e.description()))
         }
     }
 
-    impl TaskDAO for Task {
+    impl Task {
         fn all() -> Vec<Task> {
             <Task as DAO>::all()
         }
@@ -718,8 +696,13 @@ mod data_access_layer {
         }
 
         fn todo(&self) -> Option<Todo> {
-            // To Implement
+            // TODO: To Implement
             None
+        }
+
+        fn init_table() {
+            <Todo as DAO>::init_table();
+            <Self as DAO>::init_table();
         }
     }
 }
