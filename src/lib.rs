@@ -1,6 +1,51 @@
 #![allow(unused)]
 
+#[cfg(test)]
+mod tests {
+    use super::database::*;
+    use super::data_access_layer::*;
+    use super::core::*;
 
+
+    #[test]
+    fn test_todo_add() {
+        Todo::init_table();
+
+        let name = String::from("test");
+        let description = Some(String::from("test cases for this app"));
+        let todo = Todo::add(name.clone(), description).unwrap();
+
+        assert_eq!(name, *todo.name());
+    }
+
+    #[test]
+    fn test_todo_find() {
+        Todo::init_table();
+
+        let name = String::from("test");
+        let description = Some(String::from("test cases for this app"));
+        let todo = Todo::add(name.clone(), description).unwrap();
+        let res = Todo::find(*todo.id()).unwrap();
+
+        assert_eq!(name, *todo.name());
+        assert_eq!(todo.name(), res.name());
+    }
+
+    #[test]
+    fn test_todo_update() {
+        Todo::init_table();
+
+        let name = String::from("test");
+        let description = Some(String::from("test cases for this app"));
+        let todo = Todo::add(name.clone(), description).unwrap();
+        let new_name = "Test Cases".to_string();
+        let res = Todo::update(*todo.id(), Some(new_name.clone()), None).unwrap();
+
+        assert_eq!(todo.id(), res.id());
+        assert_ne!(&new_name, todo.name());
+        assert_eq!(&new_name, res.name());
+    }
+}
 
 pub mod prelude {
     pub use super::core::*;
@@ -335,10 +380,11 @@ mod data_access_layer {
 
             if obj.name() != todo.name() {
                 let statement = format!(
-                    "INSERT INTO {}(name, updated_at) VALUES ('{}', CURRENT_DATE);",
-                    Self::table_name(), obj.name()
+                    "UPDATE {} SET name = '{}', updated_at = CURRENT_DATE WHERE id = {};",
+                    Self::table_name(), obj.name(), obj.id()
                 );
 
+                println!("Executing: {}", &statement);
                 let res = DB.lock().unwrap().exec_sttmt(&statement);
 
                 if let Err(e) = res {
@@ -352,8 +398,8 @@ mod data_access_layer {
                                             .unwrap_or(String::from("NULL"));
 
                 let statement = format!(
-                    "INSERT INTO {}(description, updated_at) VALUES ({}, CURRENT_DATE);",
-                    Self::table_name(), description
+                    "UPDATE {} SET description = {}, updated_at = CURRENT_DATE WHERE id = {};",
+                    Self::table_name(), description, obj.id()
                 );
 
                 let res = DB.lock().unwrap().exec_sttmt(&statement);
@@ -422,11 +468,11 @@ mod data_access_layer {
     }
 
     impl Todo {
-        fn all() -> Vec<Todo> {
+        pub fn all() -> Vec<Todo> {
             TodoDAO::all()
         }
 
-        fn add(name: String, description: Option<String>) -> Result<Todo, InternalError> {
+        pub fn add(name: String, description: Option<String>) -> Result<Todo, InternalError> {
             let id: IdType = 0;
             let created_at = "CURRENT_DATE";
             let updated_at = "CURRENT_DATE";
@@ -436,7 +482,7 @@ mod data_access_layer {
             TodoDAO::add(todo)
         }
 
-        fn update(id: IdType, new_name: Option<String>, new_description: Option<String>) -> Result<Todo, InternalError> {
+        pub fn update(id: IdType, new_name: Option<String>, new_description: Option<String>) -> Result<Todo, InternalError> {
             let mut todo = TodoDAO::find(id) ? ;
 
             if let Some(name) = new_name {
@@ -450,20 +496,20 @@ mod data_access_layer {
             TodoDAO::update(todo)
         }
 
-        fn find(id: IdType) -> Result<Todo, InternalError> {
+        pub fn find(id: IdType) -> Result<Todo, InternalError> {
             TodoDAO::find(id)
         }
 
-        fn delete(id: IdType) -> Result<(), InternalError> {
+        pub fn delete(id: IdType) -> Result<(), InternalError> {
             TodoDAO::delete(id)
         }
 
-        fn tasks(&self) -> Vec<Task> {
+        pub fn tasks(&self) -> Vec<Task> {
             // TODO
             Vec::new()
         }
 
-        fn init_table() -> Result<(), sqlite::Error>{
+        pub fn init_table() -> Result<(), sqlite::Error>{
             TodoDAO::init_table() ? ;
             Ok(())
         }
@@ -617,8 +663,8 @@ mod data_access_layer {
 
             if obj.what() != task.what() {
                 let statement = format!(
-                    "INSERT INTO {}(what, updated_at) VALUES ('{}', CURRENT_DATE);",
-                    Self::table_name(), obj.what()
+                    "UPDATE {} SET what = '{}', updated_at = CURRENT_DATE WHERE id = {};",
+                    Self::table_name(), obj.what(), obj.id()
                 );
 
                 let res = DB.lock().unwrap().exec_sttmt(&statement);
@@ -635,8 +681,8 @@ mod data_access_layer {
                 };
 
                 let statement = format!(
-                    "INSERT INTO {}(completed_at, updated_at) VALUES ({}, CURRENT_DATE);",
-                    Self::table_name(), completed_at
+                    "UPDATE {} SET completed_at = {}, updated_at = CURRENT_DATE WHERE id = {};",
+                    Self::table_name(), completed_at, obj.id()
                 );
 
                 let res = DB.lock().unwrap().exec_sttmt(&statement);
@@ -658,19 +704,19 @@ mod data_access_layer {
     }
 
     impl Task {
-        fn all() -> Vec<Task> {
+        pub fn all() -> Vec<Task> {
             TaskDAO::all()
         }
 
-        fn find(id: IdType) -> Result<Task, InternalError> {
+        pub fn find(id: IdType) -> Result<Task, InternalError> {
             TaskDAO::find(id)
         }
 
-        fn delete(id: IdType) -> Result<(), InternalError> {
+        pub fn delete(id: IdType) -> Result<(), InternalError> {
             TaskDAO::delete(id)
         }
 
-        fn add(what: String, todo_id: IdType) -> Result<Task, InternalError> {
+        pub fn add(what: String, todo_id: IdType) -> Result<Task, InternalError> {
             let id: IdType = 0; // Only a placeholder
             let created_at = "CURRENT_DATE";
             let updated_at = "CURRENT_DATE";
@@ -681,7 +727,7 @@ mod data_access_layer {
             TaskDAO::add(task)
         }
 
-        fn update(id: IdType, what_new: Option<String>, new_status: Option<Status>) -> Result<Task, InternalError> {
+        pub fn update(id: IdType, what_new: Option<String>, new_status: Option<Status>) -> Result<Task, InternalError> {
             let mut task = TaskDAO::find(id) ? ;
 
             if let Some(what) = what_new {
@@ -695,12 +741,12 @@ mod data_access_layer {
             TaskDAO::update(task)
         }
 
-        fn todo(&self) -> Option<Todo> {
+        pub fn todo(&self) -> Option<Todo> {
             // TODO: To Implement
             None
         }
 
-        fn init_table() -> Result<(), sqlite::Error> {
+        pub fn init_table() -> Result<(), sqlite::Error> {
             TodoDAO::init_table() ? ;
             TaskDAO::init_table() ? ;
             Ok(())
