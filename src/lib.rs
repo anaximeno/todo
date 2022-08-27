@@ -117,7 +117,7 @@ mod tests {
 
         Task::update(
             *task.id(), Some("testing this task".to_string()),
-            Some(Status::Done("CURRENT_DATE".to_string()))
+            Some(Status::Done("CURRENT_TIMESTAMP".to_string()))
         ).unwrap();
 
         let res = Task::find(*task.id()).unwrap();
@@ -461,8 +461,8 @@ mod data_access_layer {
                 id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 description TEXT,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_DATE,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_DATE);",
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);",
                 Self::table_name()
             );
 
@@ -532,7 +532,7 @@ mod data_access_layer {
 
             if obj.name() != todo.name() {
                 let statement = format!(
-                    "UPDATE {} SET name = '{}', updated_at = CURRENT_DATE WHERE id = {};",
+                    "UPDATE {} SET name = '{}', updated_at = CURRENT_TIMESTAMP WHERE id = {};",
                     Self::table_name(), obj.name(), obj.id()
                 );
 
@@ -549,7 +549,7 @@ mod data_access_layer {
                                             .unwrap_or(String::from("NULL"));
 
                 let statement = format!(
-                    "UPDATE {} SET description = {}, updated_at = CURRENT_DATE WHERE id = {};",
+                    "UPDATE {} SET description = {}, updated_at = CURRENT_TIMESTAMP WHERE id = {};",
                     Self::table_name(), description, obj.id()
                 );
 
@@ -629,8 +629,8 @@ mod data_access_layer {
 
         pub fn add(name: String, description: Option<String>) -> Result<Todo, InternalError> {
             let id: IdType = 0;
-            let created_at = "CURRENT_DATE";
-            let updated_at = "CURRENT_DATE";
+            let created_at = "CURRENT_TIMESTAMP";
+            let updated_at = "CURRENT_TIMESTAMP";
 
             let todo = Todo::new(id, name, description, created_at.into(), updated_at.into());
 
@@ -705,8 +705,8 @@ mod data_access_layer {
                 id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                 what TEXT NOT NULL,
                 todo_id INTEGER NOT NULL,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_DATE,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_DATE,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 completed_at DATETIME,
                 FOREIGN KEY (todo_id) REFERENCES Todos(todo_id) ON DELETE SET NULL);",
                 Self::table_name()
@@ -845,7 +845,7 @@ mod data_access_layer {
 
             if obj.what() != task.what() {
                 let statement = format!(
-                    "UPDATE {} SET what = '{}', updated_at = CURRENT_DATE WHERE id = {};",
+                    "UPDATE {} SET what = '{}', updated_at = CURRENT_TIMESTAMP WHERE id = {};",
                     Self::table_name(), obj.what(), obj.id()
                 );
 
@@ -863,7 +863,7 @@ mod data_access_layer {
                 };
 
                 let statement = format!(
-                    "UPDATE {} SET completed_at = {}, updated_at = CURRENT_DATE WHERE id = {};",
+                    "UPDATE {} SET completed_at = {}, updated_at = CURRENT_TIMESTAMP WHERE id = {};",
                     Self::table_name(), completed_at, obj.id()
                 );
 
@@ -900,8 +900,8 @@ mod data_access_layer {
 
         pub fn add(what: String, todo_id: IdType) -> Result<Task, InternalError> {
             let id: IdType = 0; // Only a placeholder
-            let created_at = "CURRENT_DATE";
-            let updated_at = "CURRENT_DATE";
+            let created_at = "CURRENT_TIMESTAMP";
+            let updated_at = "CURRENT_TIMESTAMP";
             let status = Status::Todo;
 
             let task = Task::new(id, todo_id, &what, created_at, updated_at, status);
