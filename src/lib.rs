@@ -180,6 +180,21 @@ mod tests {
 
         assert_eq!(todo1_tasks.len(), 2);
     }
+
+    #[test]
+    fn test_task_s_todo() {
+        Todo::init_table().unwrap();
+        Task::init_table().unwrap();
+
+        let todo = Todo::add("test tasks".into(), None).unwrap();
+
+        let task = Task::add("test task model".into(), *todo.id()).unwrap();
+
+        let task_s_todo = task.todo().unwrap();
+
+        assert_eq!(task_s_todo.id(), todo.id());
+        assert_eq!(task_s_todo.name(), todo.name());
+    }
 }
 
 pub mod prelude {
@@ -900,9 +915,8 @@ mod data_access_layer {
             TaskDAO::update(task)
         }
 
-        pub fn todo(&self) -> Option<Todo> {
-            // TODO: To Implement
-            None
+        pub fn todo(&self) -> Result<Todo, InternalError> {
+            Todo::find(*self.todo_id())
         }
 
         pub fn init_table() -> Result<(), sqlite::Error> {
