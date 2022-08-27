@@ -561,6 +561,7 @@ mod data_access_layer {
             Self::find(*obj.id())
         }
 
+        // FIXME: error in concurrency
         fn add(obj: Self::ObjType) -> Result<Todo, InternalError> {
             if !Self::is_table_initialized() {
                 return Err(InternalError::table_not_initialized(&Self::table_name()));
