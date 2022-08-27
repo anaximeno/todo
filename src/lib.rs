@@ -9,7 +9,7 @@ mod tests {
 
     #[test]
     fn test_todo_add() {
-        Todo::init_table();
+        Todo::init_table().unwrap();
 
         let name = String::from("test");
         let description = Some(String::from("test cases for this app"));
@@ -20,7 +20,7 @@ mod tests {
 
     #[test]
     fn test_todo_find() {
-        Todo::init_table();
+        Todo::init_table().unwrap();
 
         let name = String::from("test");
         let description = Some(String::from("test cases for this app"));
@@ -33,7 +33,7 @@ mod tests {
 
     #[test]
     fn test_todo_update() {
-        Todo::init_table();
+        Todo::init_table().unwrap();
 
         let name = String::from("test");
         let description = Some(String::from("test cases for this app"));
@@ -49,7 +49,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_todo_delete() {
-        Todo::init_table();
+        Todo::init_table().unwrap();
 
         let name = String::from("test");
         let description = Some(String::from("test cases for this app"));
@@ -64,18 +64,104 @@ mod tests {
 
     #[test]
     fn test_todo_all() {
-        Todo::init_table();
+        Todo::init_table().unwrap();
 
         Todo::add("uno".into(), Some("the first number".to_string())).unwrap();
         Todo::add(String::from("dos"), None).unwrap();
 
         let todos = Todo::all();
 
-        /* Other tests are executed in the same context,
+        /* NOTE: Other tests are executed in the same context,
          * so, at least the number of todos in the list should be equal or
          * greater to the number of todos added above.
          * */
         assert!(todos.len() >= 2);
+    }
+
+    #[test]
+    fn test_task_add() {
+        Todo::init_table().unwrap();
+        Task::init_table().unwrap();
+
+        let todo = Todo::add("test tasks".into(), None).unwrap();
+        let task = Task::add("test task model".into(), *todo.id()).unwrap();
+
+        assert_eq!(task.todo_id(), todo.id());
+        assert_eq!(*task.status(), Status::Todo);
+        assert_eq!(task.what(), "test task model");
+    }
+
+    #[test]
+    fn test_task_find() {
+        Todo::init_table().unwrap();
+        Task::init_table().unwrap();
+
+        let todo = Todo::add("test tasks".into(), None).unwrap();
+        let task = Task::add("test task model".into(), *todo.id()).unwrap();
+
+        let res = Task::find(*task.id()).unwrap();
+
+        assert_eq!(task.id(), res.id());
+        assert_eq!(task.todo_id(), res.todo_id());
+        assert_eq!(task.what(), res.what());
+    }
+
+    #[test]
+    fn test_task_update() {
+        Todo::init_table().unwrap();
+        Task::init_table().unwrap();
+
+        let todo = Todo::add("test tasks".into(), None).unwrap();
+
+        let task = Task::add("test task model".into(), *todo.id()).unwrap();
+
+        Task::update(
+            *task.id(), Some("testing this task".to_string()),
+            Some(Status::Done("CURRENT_DATE".to_string()))
+        ).unwrap();
+
+        let res = Task::find(*task.id()).unwrap();
+
+        assert_eq!(res.id(), task.id());
+        assert_ne!(res.what(), "test task model");
+        assert_eq!(res.what(), "testing this task");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_task_delete() {
+        Todo::init_table().unwrap();
+        Task::init_table().unwrap();
+
+        let todo = Todo::add("test tasks".into(), None).unwrap();
+
+        let task = Task::add("test task model".into(), *todo.id()).unwrap();
+
+        assert_ne!(Task::delete(*task.id()).is_err(), true);
+
+        /* Should Panic! */
+        Task::find(*task.id()).unwrap();
+    }
+
+    #[test]
+    fn test_task_all() {
+        Todo::init_table().unwrap();
+        Task::init_table().unwrap();
+
+        let todo1 = Todo::add("test tasks".into(), None).unwrap();
+        let todo2 = Todo::add("test tasks again".into(), None).unwrap();
+
+        Task::add("test task model 1 times".into(), *todo1.id()).unwrap();
+        Task::add("test task model 2 times".into(), *todo1.id()).unwrap();
+        Task::add("test task model once again".into(), *todo2.id()).unwrap();
+
+        let tasks = Task::all();
+
+        /* NOTE: Other tests are executed in the same context,
+         * so, at least the number of todos in the list should be equal or
+         * greater to the number of todos added above.
+         * */
+        assert!(tasks.len() >= 3);
     }
 }
 
@@ -416,7 +502,6 @@ mod data_access_layer {
                     Self::table_name(), obj.name(), obj.id()
                 );
 
-                println!("Executing: {}", &statement);
                 let res = DB.lock().unwrap().exec_sttmt(&statement);
 
                 if let Err(e) = res {
@@ -618,8 +703,8 @@ mod data_access_layer {
                     let created_at = t[3].as_string().unwrap();
                     let updated_at = t[4].as_string().unwrap();
                     let status = t[5].as_string()
-                                                    .map(|date| Status::Done(date.into()))
-                                                    .unwrap_or(Status::Todo);
+                                             .map(|date| Status::Done(date.into()))
+                                             .unwrap_or(Status::Todo);
                     Task::new(id, todo_id, what, created_at, updated_at, status)
                 })
             } else {
@@ -658,7 +743,7 @@ mod data_access_layer {
                 }
 
                 // FIXME: Not very useful in current environmnets since if another value is added before this
-                // query, the wrong todo will be returned. Maybe consider using a mutex in the DB.lock().unwrap().
+                // query, the wrong todo will be returned. Maybe consider using a mutex in the DB.
                 let query = format!("
                     SELECT id, what, todo_id, created_at, updated_at, completed_at FROM {} WHERE id = (SELECT MAX(id) FROM {});",
                     Self::table_name(), Self::table_name()
