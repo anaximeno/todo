@@ -205,7 +205,8 @@ pub mod prelude {
 mod database {
     use sqlite::{self, Connection};
     use lazy_static::lazy_static;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
+    use std::thread;
 
     /// Database handler for the aplication
     pub struct Database {
@@ -260,12 +261,13 @@ mod database {
 
         fn is_table_initialized() -> bool {
             let statement = format!("SELECT * FROM {} LIMIT 1;", Self::table_name());
+
             DB.lock().unwrap().exec_sttmt(&statement).is_ok()
         }
     }
 
     lazy_static! {
-        pub static ref DB: Mutex<Database> = Mutex::new(Database::new(":memory:"));
+        pub static ref DB: Arc<Mutex<Database>> = Arc::new(Mutex::new(Database::new(":memory:")));
     }
 
 }
@@ -561,7 +563,6 @@ mod data_access_layer {
             Self::find(*obj.id())
         }
 
-        // FIXME: error in concurrency
         fn add(obj: Self::ObjType) -> Result<Todo, InternalError> {
             if !Self::is_table_initialized() {
                 return Err(InternalError::table_not_initialized(&Self::table_name()));
@@ -579,7 +580,11 @@ mod data_access_layer {
                     Self::table_name(), name, description
                 );
 
-                let res = DB.lock().unwrap().exec_sttmt(&statement);
+                // Using it this way will make it to only be onlocked
+                // when the variable below is out of scope.
+                let mut db = DB.lock().unwrap();
+
+                let res = db.exec_sttmt(&statement);
 
                 if let Err(e) = res {
                     return Err(InternalError::new(&e.to_string()));
@@ -592,7 +597,7 @@ mod data_access_layer {
                     Self::table_name(), Self::table_name()
                 );
 
-                let todo: Option<Todo> = if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
+                let todo: Option<Todo> = if let Ok(mut cursor) = db.select_query(&query) {
                     cursor.next().unwrap().map(|t: &[sqlite::Value]| {
                         let id: IdType = t[0].as_integer().unwrap() as IdType;
                         let name = t[1].as_string().unwrap();
@@ -794,20 +799,22 @@ mod data_access_layer {
                     Self::table_name(), todo_id, what, completed_at
                 );
 
-                let res = DB.lock().unwrap().exec_sttmt(&statement);
+                // Using it this way will make it to only be onlocked
+                // when the variable below is out of scope.
+                let mut db = DB.lock().unwrap();
+
+                let res = db.exec_sttmt(&statement);
 
                 if let Err(e) = res {
                     return Err(InternalError::new(&e.to_string()));
                 }
 
-                // FIXME: Not very useful in current environmnets since if another value is added before this
-                // query, the wrong todo will be returned. Maybe consider using a mutex in the DB.
                 let query = format!("
                     SELECT id, what, todo_id, created_at, updated_at, completed_at FROM {} WHERE id = (SELECT MAX(id) FROM {});",
                     Self::table_name(), Self::table_name()
                 );
 
-                let task: Option<Task> = if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
+                let task: Option<Task> = if let Ok(mut cursor) = db.select_query(&query) {
                     cursor.next().unwrap().map(|t: &[sqlite::Value]| {
                         let id: IdType = t[0].as_integer().unwrap() as IdType;
                         let what = t[1].as_string().unwrap();
