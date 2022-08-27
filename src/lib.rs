@@ -45,6 +45,38 @@ mod tests {
         assert_ne!(&new_name, todo.name());
         assert_eq!(&new_name, res.name());
     }
+
+    #[test]
+    #[should_panic]
+    fn test_todo_delete() {
+        Todo::init_table();
+
+        let name = String::from("test");
+        let description = Some(String::from("test cases for this app"));
+        let todo = Todo::add(name.clone(), description).unwrap();
+
+        assert_ne!(Todo::delete(*todo.id()).is_err(), true);
+
+        /* Should Panic! */
+        Todo::find(*todo.id()).unwrap();
+
+    }
+
+    #[test]
+    fn test_todo_all() {
+        Todo::init_table();
+
+        Todo::add("uno".into(), Some("the first number".to_string())).unwrap();
+        Todo::add(String::from("dos"), None).unwrap();
+
+        let todos = Todo::all();
+
+        /* Other tests are executed in the same context,
+         * so, at least the number of todos in the list should be equal or
+         * greater to the number of todos added above.
+         * */
+        assert!(todos.len() >= 2);
+    }
 }
 
 pub mod prelude {
@@ -325,7 +357,7 @@ mod data_access_layer {
             let mut todos: Vec<Todo> = Vec::new();
 
             if Self::is_table_initialized() {
-                let query = format!("SELECT id, name, description FROM {}", Self::table_name());
+                let query = format!("SELECT id, name, description, created_at, updated_at FROM {}", Self::table_name());
 
                 if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
                     while let Some(result) = cursor.next().unwrap() {
