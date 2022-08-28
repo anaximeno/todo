@@ -2,10 +2,9 @@
 
 #[cfg(test)]
 mod tests {
-    use super::database::*;
-    use super::data_access_layer::*;
     use super::core::*;
-
+    use super::data_access_layer::*;
+    use super::database::*;
 
     #[test]
     fn test_todo_add() {
@@ -59,7 +58,6 @@ mod tests {
 
         /* Should Panic! */
         Todo::find(*todo.id()).unwrap();
-
     }
 
     #[test]
@@ -116,9 +114,11 @@ mod tests {
         let task = Task::add("test task model".into(), *todo.id()).unwrap();
 
         Task::update(
-            *task.id(), Some("testing this task".to_string()),
-            Some(Status::Done("CURRENT_TIMESTAMP".to_string()))
-        ).unwrap();
+            *task.id(),
+            Some("testing this task".to_string()),
+            Some(Status::Done("CURRENT_TIMESTAMP".to_string())),
+        )
+        .unwrap();
 
         let res = Task::find(*task.id()).unwrap();
 
@@ -203,15 +203,15 @@ pub mod prelude {
 }
 
 mod database {
-    use sqlite::{self, Connection};
     use lazy_static::lazy_static;
+    use sqlite::{self, Connection};
     use std::sync::{Arc, Mutex};
     use std::thread;
 
     /// Database handler for the aplication
     pub struct Database {
         path: String,
-        connection: Connection
+        connection: Connection,
     }
 
     impl From<&str> for Database {
@@ -225,7 +225,7 @@ mod database {
         pub fn new(path: &str) -> Self {
             let path = String::from(path);
             let connection = Connection::open(&path).unwrap();
-            Self{path, connection}
+            Self { path, connection }
         }
 
         /// References the path of the db
@@ -254,7 +254,6 @@ mod database {
         }
     }
 
-
     pub trait DatabaseConnector {
         fn table_name() -> &'static str;
         fn init_table() -> Result<(), sqlite::Error>;
@@ -269,21 +268,22 @@ mod database {
     lazy_static! {
         pub static ref DB: Arc<Mutex<Database>> = Arc::new(Mutex::new(Database::new(":memory:")));
     }
-
 }
 
 mod core {
-    use std::fmt::{self, Display};
     pub use std::error::Error;
+    use std::fmt::{self, Display};
 
     #[derive(Debug)]
     pub struct InternalError {
-        details: String
+        details: String,
     }
 
     impl InternalError {
         pub fn new(details: &str) -> Self {
-            Self{ details: String::from(details) }
+            Self {
+                details: String::from(details),
+            }
         }
 
         pub fn table_not_initialized(name: &str) -> Self {
@@ -326,8 +326,8 @@ mod core {
     /// Todo is a structure used to store
     /// a set of task to be done.
     pub struct Todo {
-        id:          IdType,
-        name:        String,
+        id: IdType,
+        name: String,
         description: Option<String>,
         created_at: String, // TODO: Convert to datetime format
         updated_at: String,
@@ -343,18 +343,25 @@ mod core {
         what: String,
         created_at: String, // TODO: Convert to datetime format
         updated_at: String,
-        status: Status
+        status: Status,
     }
 
     impl Task {
-        pub fn new(id: IdType, todo_id: IdType, what: &str, created_at: &str, updated_at: &str, status: Status) -> Self {
+        pub fn new(
+            id: IdType,
+            todo_id: IdType,
+            what: &str,
+            created_at: &str,
+            updated_at: &str,
+            status: Status,
+        ) -> Self {
             Self {
                 id,
                 todo_id,
                 status,
                 what: String::from(what),
                 created_at: String::from(created_at),
-                updated_at: String::from(updated_at)
+                updated_at: String::from(updated_at),
             }
         }
 
@@ -399,8 +406,20 @@ mod core {
     }
 
     impl Todo {
-        pub fn new(id: IdType, name: String, description: Option<String>, created_at: String, updated_at: String) -> Self {
-            Self { id, name, description, created_at, updated_at }
+        pub fn new(
+            id: IdType,
+            name: String,
+            description: Option<String>,
+            created_at: String,
+            updated_at: String,
+        ) -> Self {
+            Self {
+                id,
+                name,
+                description,
+                created_at,
+                updated_at,
+            }
         }
 
         /// Sets a new value to the name.
@@ -435,8 +454,8 @@ mod core {
 }
 
 mod data_access_layer {
-    use super::database::*;
     use super::core::*;
+    use super::database::*;
 
     trait DAO: DatabaseConnector {
         type ObjType;
@@ -458,7 +477,8 @@ mod data_access_layer {
 
         fn init_table() -> Result<(), sqlite::Error> {
             if !Self::is_table_initialized() {
-                let sttmt = format!("{}(
+                let sttmt = format!(
+                    "{}(
                     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
                     description TEXT,
@@ -481,7 +501,10 @@ mod data_access_layer {
             let mut todos: Vec<Todo> = Vec::new();
 
             if Self::is_table_initialized() {
-                let query = format!("SELECT id, name, description, created_at, updated_at FROM {}", Self::table_name());
+                let query = format!(
+                    "SELECT id, name, description, created_at, updated_at FROM {}",
+                    Self::table_name()
+                );
 
                 if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
                     while let Some(result) = cursor.next().unwrap() {
@@ -490,7 +513,13 @@ mod data_access_layer {
                         let description = result[2].as_string().map(|desc| String::from(desc));
                         let created_at = result[3].as_string().unwrap();
                         let updated_at = result[4].as_string().unwrap();
-                        todos.push(Todo::new(id, name.into(), description, created_at.into(), updated_at.into()))
+                        todos.push(Todo::new(
+                            id,
+                            name.into(),
+                            description,
+                            created_at.into(),
+                            updated_at.into(),
+                        ))
                     }
                 }
             }
@@ -503,19 +532,28 @@ mod data_access_layer {
                 return Err(InternalError::table_not_initialized(&Self::table_name()));
             }
 
-            let query = format!("
+            let query = format!(
+                "
                 SELECT id, name, description, created_at, updated_at FROM {} WHERE id = {}",
-                Self::table_name(), id
+                Self::table_name(),
+                id
             );
 
-            let todo: Option<Todo> = if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
+            let todo: Option<Todo> = if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query)
+            {
                 cursor.next().unwrap().map(|t: &[sqlite::Value]| {
                     let id: IdType = t[0].as_integer().unwrap() as IdType;
                     let name = t[1].as_string().unwrap();
                     let description = t[2].as_string().map(|desc| String::from(desc));
                     let created_at = t[3].as_string().unwrap();
                     let updated_at = t[4].as_string().unwrap();
-                    Todo::new(id, name.into(), description, created_at.into(), updated_at.into())
+                    Todo::new(
+                        id,
+                        name.into(),
+                        description,
+                        created_at.into(),
+                        updated_at.into(),
+                    )
                 })
             } else {
                 None
@@ -537,7 +575,9 @@ mod data_access_layer {
             if obj.name() != todo.name() {
                 let statement = format!(
                     "UPDATE {} SET name = '{}', updated_at = CURRENT_TIMESTAMP WHERE id = {};",
-                    Self::table_name(), obj.name(), obj.id()
+                    Self::table_name(),
+                    obj.name(),
+                    obj.id()
                 );
 
                 let res = DB.lock().unwrap().exec_sttmt(&statement);
@@ -548,11 +588,13 @@ mod data_access_layer {
             }
 
             if obj.description() != todo.description() {
-                let description = obj.description()
-                                     .map(|desc| format!("'{}'", desc))
-                                     .unwrap_or(String::from("NULL"));
+                let description = obj
+                    .description()
+                    .map(|desc| format!("'{}'", desc))
+                    .unwrap_or(String::from("NULL"));
 
-                let statement = format!(
+                let statement =
+                    format!(
                     "UPDATE {} SET description = {}, updated_at = CURRENT_TIMESTAMP WHERE id = {};",
                     Self::table_name(), description, obj.id()
                 );
@@ -571,17 +613,23 @@ mod data_access_layer {
             if !Self::is_table_initialized() {
                 return Err(InternalError::table_not_initialized(&Self::table_name()));
             } else if let Ok(todo) = Self::find(*obj.id()) {
-                let details = format!("todo with id = {}, is already in use in the table", obj.id());
+                let details = format!(
+                    "todo with id = {}, is already in use in the table",
+                    obj.id()
+                );
                 return Err(InternalError::new(&details));
             } else {
                 let name = obj.name();
-                let description = obj.description()
-                                     .map(|desc| format!("'{}'", desc))
-                                     .unwrap_or(String::from("NULL"));
+                let description = obj
+                    .description()
+                    .map(|desc| format!("'{}'", desc))
+                    .unwrap_or(String::from("NULL"));
 
                 let statement = format!(
                     "INSERT INTO {}(name, description) VALUES ('{}', {});",
-                    Self::table_name(), name, description
+                    Self::table_name(),
+                    name,
+                    description
                 );
 
                 // Using it this way will make it to only be unlocked
@@ -606,13 +654,21 @@ mod data_access_layer {
                         let description = t[2].as_string().map(|desc| String::from(desc));
                         let created_at = t[3].as_string().unwrap();
                         let updated_at = t[4].as_string().unwrap();
-                        Todo::new(id, name.into(), description, created_at.into(), updated_at.into())
+                        Todo::new(
+                            id,
+                            name.into(),
+                            description,
+                            created_at.into(),
+                            updated_at.into(),
+                        )
                     })
                 } else {
                     None
                 };
 
-                todo.ok_or(InternalError::new("Could not get the todo after adding it to the database."))
+                todo.ok_or(InternalError::new(
+                    "Could not get the todo after adding it to the database.",
+                ))
             }
         }
 
@@ -639,7 +695,11 @@ mod data_access_layer {
             TodoDAO::add(todo)
         }
 
-        pub fn update(id: IdType, new_name: Option<String>, new_description: Option<String>) -> Result<Todo, InternalError> {
+        pub fn update(
+            id: IdType,
+            new_name: Option<String>,
+            new_description: Option<String>,
+        ) -> Result<Todo, InternalError> {
             let mut todo = TodoDAO::find(id) ? ;
 
             if let Some(name) = new_name {
@@ -677,9 +737,10 @@ mod data_access_layer {
                         let todo_id = result[2].as_integer().unwrap() as IdType;
                         let created_at = result[3].as_string().unwrap();
                         let updated_at = result[4].as_string().unwrap();
-                        let status = result[5].as_string()
-                                              .map(|date| Status::Done(date.into()))
-                                              .unwrap_or(Status::Todo);
+                        let status = result[5]
+                            .as_string()
+                            .map(|date| Status::Done(date.into()))
+                            .unwrap_or(Status::Todo);
 
                         let task = Task::new(id, todo_id, what, created_at, updated_at, status);
 
@@ -691,7 +752,7 @@ mod data_access_layer {
             return tasks;
         }
 
-        pub fn init_table() -> Result<(), sqlite::Error>{
+        pub fn init_table() -> Result<(), sqlite::Error> {
             TodoDAO::init_table() ? ;
             Ok(())
         }
@@ -704,7 +765,8 @@ mod data_access_layer {
 
         fn init_table() -> Result<(), sqlite::Error> {
             if !Self::is_table_initialized() {
-                let sttmt = format!("{}(
+                let sttmt = format!(
+                    "{}(
                     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                     what TEXT NOT NULL,
                     todo_id INTEGER NOT NULL,
@@ -729,7 +791,10 @@ mod data_access_layer {
             let mut tasks: Vec<Task> = Vec::new();
 
             if Self::is_table_initialized() {
-                let query = format!("SELECT id, what, todo_id, created_at, updated_at, completed_at FROM {};", Self::table_name());
+                let query = format!(
+                    "SELECT id, what, todo_id, created_at, updated_at, completed_at FROM {};",
+                    Self::table_name()
+                );
 
                 if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
                     while let Some(mut result) = cursor.next().unwrap() {
@@ -740,9 +805,10 @@ mod data_access_layer {
                         let todo_id = result[2].as_integer().unwrap() as IdType;
                         let created_at = result[3].as_string().unwrap();
                         let updated_at = result[4].as_string().unwrap();
-                        let status = result[5].as_string()
-                                              .map(|date| Status::Done(date.into()))
-                                              .unwrap_or(Status::Todo);
+                        let status = result[5]
+                            .as_string()
+                            .map(|date| Status::Done(date.into()))
+                            .unwrap_or(Status::Todo);
 
                         let task = Task::new(id, todo_id, what, created_at, updated_at, status);
 
@@ -764,16 +830,18 @@ mod data_access_layer {
                 Self::table_name(), id
             );
 
-            let task: Option<Task> = if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
+            let task: Option<Task> = if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query)
+            {
                 cursor.next().unwrap().map(|t: &[sqlite::Value]| {
                     let id: IdType = t[0].as_integer().unwrap() as IdType;
                     let what = t[1].as_string().unwrap();
                     let todo_id = t[2].as_integer().unwrap() as IdType;
                     let created_at = t[3].as_string().unwrap();
                     let updated_at = t[4].as_string().unwrap();
-                    let status = t[5].as_string()
-                                     .map(|date| Status::Done(date.into()))
-                                     .unwrap_or(Status::Todo);
+                    let status = t[5]
+                        .as_string()
+                        .map(|date| Status::Done(date.into()))
+                        .unwrap_or(Status::Todo);
                     Task::new(id, todo_id, what, created_at, updated_at, status)
                 })
             } else {
@@ -788,7 +856,10 @@ mod data_access_layer {
             if !Self::is_table_initialized() {
                 return Err(InternalError::table_not_initialized(&Self::table_name()));
             } else if let Ok(task) = Self::find(*obj.id()) {
-                let details = format!("task with id = {}, is already in use in the table", obj.id());
+                let details = format!(
+                    "task with id = {}, is already in use in the table",
+                    obj.id()
+                );
                 return Err(InternalError::new(&details));
             } else {
                 let todo = TodoDAO::find(*obj.todo_id()) ? ;
@@ -797,12 +868,15 @@ mod data_access_layer {
                 let what = obj.what();
                 let completed_at = match obj.status() {
                     Status::Done(date) => date,
-                    Status::Todo => "NULL"
+                    Status::Todo => "NULL",
                 };
 
                 let statement = format!(
                     "INSERT INTO {}(todo_id, what, completed_at) VALUES ({}, '{}', {});",
-                    Self::table_name(), todo_id, what, completed_at
+                    Self::table_name(),
+                    todo_id,
+                    what,
+                    completed_at
                 );
 
                 // Using it this way will make it to only be unlocked
@@ -827,16 +901,19 @@ mod data_access_layer {
                         let todo_id = t[2].as_integer().unwrap() as IdType;
                         let created_at = t[3].as_string().unwrap();
                         let updated_at = t[4].as_string().unwrap();
-                        let status = t[5].as_string()
-                                         .map(|date| Status::Done(date.into()))
-                                         .unwrap_or(Status::Todo);
+                        let status = t[5]
+                            .as_string()
+                            .map(|date| Status::Done(date.into()))
+                            .unwrap_or(Status::Todo);
                         Task::new(id, todo_id, what, created_at, updated_at, status)
                     })
                 } else {
                     None
                 };
 
-                task.ok_or(InternalError::new("Could not get the task after adding it to the database."))
+                task.ok_or(InternalError::new(
+                    "Could not get the task after adding it to the database.",
+                ))
             }
         }
 
@@ -852,7 +929,9 @@ mod data_access_layer {
             if obj.what() != task.what() {
                 let statement = format!(
                     "UPDATE {} SET what = '{}', updated_at = CURRENT_TIMESTAMP WHERE id = {};",
-                    Self::table_name(), obj.what(), obj.id()
+                    Self::table_name(),
+                    obj.what(),
+                    obj.id()
                 );
 
                 let res = DB.lock().unwrap().exec_sttmt(&statement);
@@ -865,7 +944,7 @@ mod data_access_layer {
             if obj.status() != task.status() {
                 let completed_at = match obj.status() {
                     Status::Done(date) => format!("'{}'", date), // Note the single collon
-                    Status::Todo => String::from("NULL")
+                    Status::Todo => String::from("NULL"),
                 };
 
                 let statement = format!(
@@ -885,7 +964,11 @@ mod data_access_layer {
 
         fn delete(id: IdType) -> Result<(), InternalError> {
             let task = Self::find(id) ? ;
-            let statement = format!("DELETE FROM {} WHERE id = {};", Self::table_name(), task.id());
+            let statement = format!(
+                "DELETE FROM {} WHERE id = {};",
+                Self::table_name(),
+                task.id()
+            );
             let res = DB.lock().unwrap().exec_sttmt(&statement);
             res.map_err(|e| InternalError::new(&e.to_string()))
         }
@@ -915,7 +998,11 @@ mod data_access_layer {
             TaskDAO::add(task)
         }
 
-        pub fn update(id: IdType, what_new: Option<String>, new_status: Option<Status>) -> Result<Task, InternalError> {
+        pub fn update(
+            id: IdType,
+            what_new: Option<String>,
+            new_status: Option<Status>,
+        ) -> Result<Task, InternalError> {
             let mut task = TaskDAO::find(id) ? ;
 
             if let Some(what) = what_new {
