@@ -457,16 +457,20 @@ mod data_access_layer {
         }
 
         fn init_table() -> Result<(), sqlite::Error> {
-            let sttmt = format!("{}(
-                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);",
-                Self::table_name()
-            );
+            if !Self::is_table_initialized() {
+                let sttmt = format!("{}(
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);",
+                    Self::table_name()
+                );
 
-            DB.lock().unwrap().create_table(&sttmt)
+                DB.lock().unwrap().create_table(&sttmt)
+            } else {
+                Ok(())
+            }
         }
     }
 
@@ -528,7 +532,7 @@ mod data_access_layer {
 
             let todo = Self::find(*obj.id()) ? ;
 
-            /* Here what can be changed currently are the: name and description. */
+            /* Here what can be changed currently are the name and description. */
 
             if obj.name() != todo.name() {
                 let statement = format!(
@@ -545,8 +549,8 @@ mod data_access_layer {
 
             if obj.description() != todo.description() {
                 let description = obj.description()
-                                            .map(|desc| format!("'{}'", desc))
-                                            .unwrap_or(String::from("NULL"));
+                                     .map(|desc| format!("'{}'", desc))
+                                     .unwrap_or(String::from("NULL"));
 
                 let statement = format!(
                     "UPDATE {} SET description = {}, updated_at = CURRENT_TIMESTAMP WHERE id = {};",
@@ -572,15 +576,15 @@ mod data_access_layer {
             } else {
                 let name = obj.name();
                 let description = obj.description()
-                                            .map(|desc| format!("'{}'", desc))
-                                            .unwrap_or(String::from("NULL"));
+                                     .map(|desc| format!("'{}'", desc))
+                                     .unwrap_or(String::from("NULL"));
 
                 let statement = format!(
                     "INSERT INTO {}(name, description) VALUES ('{}', {});",
                     Self::table_name(), name, description
                 );
 
-                // Using it this way will make it to only be onlocked
+                // Using it this way will make it to only be unlocked
                 // when the variable below is out of scope.
                 let mut db = DB.lock().unwrap();
 
@@ -590,8 +594,6 @@ mod data_access_layer {
                     return Err(InternalError::new(&e.to_string()));
                 }
 
-                // FIXME: Not very useful in current environmnets since if another value is added before this
-                // query, the wrong todo will be returned. Maybe consider using a mutex in the DB.lock().unwrap().
                 let query = format!("
                     SELECT id, name, description, created_at, updated_at FROM {} WHERE id = (SELECT MAX(id) FROM {});",
                     Self::table_name(), Self::table_name()
@@ -676,8 +678,8 @@ mod data_access_layer {
                         let created_at = result[3].as_string().unwrap();
                         let updated_at = result[4].as_string().unwrap();
                         let status = result[5].as_string()
-                                                      .map(|date| Status::Done(date.into()))
-                                                      .unwrap_or(Status::Todo);
+                                              .map(|date| Status::Done(date.into()))
+                                              .unwrap_or(Status::Todo);
 
                         let task = Task::new(id, todo_id, what, created_at, updated_at, status);
 
@@ -701,18 +703,22 @@ mod data_access_layer {
         }
 
         fn init_table() -> Result<(), sqlite::Error> {
-            let sttmt = format!("{}(
-                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-                what TEXT NOT NULL,
-                todo_id INTEGER NOT NULL,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                completed_at DATETIME,
-                FOREIGN KEY (todo_id) REFERENCES Todos(todo_id) ON DELETE SET NULL);",
-                Self::table_name()
-            );
+            if !Self::is_table_initialized() {
+                let sttmt = format!("{}(
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    what TEXT NOT NULL,
+                    todo_id INTEGER NOT NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    completed_at DATETIME,
+                    FOREIGN KEY (todo_id) REFERENCES Todos(todo_id) ON DELETE SET NULL);",
+                    Self::table_name()
+                );
 
-            DB.lock().unwrap().create_table(&sttmt)
+                DB.lock().unwrap().create_table(&sttmt)
+            } else {
+                Ok(())
+            }
         }
     }
 
@@ -735,8 +741,8 @@ mod data_access_layer {
                         let created_at = result[3].as_string().unwrap();
                         let updated_at = result[4].as_string().unwrap();
                         let status = result[5].as_string()
-                                                      .map(|date| Status::Done(date.into()))
-                                                      .unwrap_or(Status::Todo);
+                                              .map(|date| Status::Done(date.into()))
+                                              .unwrap_or(Status::Todo);
 
                         let task = Task::new(id, todo_id, what, created_at, updated_at, status);
 
@@ -766,8 +772,8 @@ mod data_access_layer {
                     let created_at = t[3].as_string().unwrap();
                     let updated_at = t[4].as_string().unwrap();
                     let status = t[5].as_string()
-                                             .map(|date| Status::Done(date.into()))
-                                             .unwrap_or(Status::Todo);
+                                     .map(|date| Status::Done(date.into()))
+                                     .unwrap_or(Status::Todo);
                     Task::new(id, todo_id, what, created_at, updated_at, status)
                 })
             } else {
@@ -799,7 +805,7 @@ mod data_access_layer {
                     Self::table_name(), todo_id, what, completed_at
                 );
 
-                // Using it this way will make it to only be onlocked
+                // Using it this way will make it to only be unlocked
                 // when the variable below is out of scope.
                 let mut db = DB.lock().unwrap();
 
@@ -822,8 +828,8 @@ mod data_access_layer {
                         let created_at = t[3].as_string().unwrap();
                         let updated_at = t[4].as_string().unwrap();
                         let status = t[5].as_string()
-                                                        .map(|date| Status::Done(date.into()))
-                                                        .unwrap_or(Status::Todo);
+                                         .map(|date| Status::Done(date.into()))
+                                         .unwrap_or(Status::Todo);
                         Task::new(id, todo_id, what, created_at, updated_at, status)
                     })
                 } else {
