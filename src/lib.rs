@@ -254,7 +254,7 @@ mod database {
         }
     }
 
-    pub trait DatabaseConnector {
+    pub trait DatabaseConnectorTrait {
         fn table_name() -> &'static str;
         fn init_table() -> Result<(), sqlite::Error>;
 
@@ -457,7 +457,7 @@ mod data_access_layer {
     use super::core::*;
     use super::database::*;
 
-    trait DAO: DatabaseConnector {
+    trait BasicDataModelTrait: DatabaseConnectorTrait {
         type ObjType;
 
         fn all() -> Vec<Self::ObjType>;
@@ -467,10 +467,10 @@ mod data_access_layer {
         fn delete(id: IdType) -> Result<(), InternalError>;
     }
 
-    struct TodoDAO;
-    struct TaskDAO;
+    struct TodoModel;
+    struct TaskModel;
 
-    impl DatabaseConnector for TodoDAO {
+    impl DatabaseConnectorTrait for TodoModel {
         fn table_name() -> &'static str {
             "todos"
         }
@@ -494,7 +494,7 @@ mod data_access_layer {
         }
     }
 
-    impl DAO for TodoDAO {
+    impl BasicDataModelTrait for TodoModel {
         type ObjType = Todo;
 
         fn all() -> Vec<Self::ObjType> {
@@ -682,7 +682,7 @@ mod data_access_layer {
 
     impl Todo {
         pub fn all() -> Vec<Todo> {
-            TodoDAO::all()
+            TodoModel::all()
         }
 
         pub fn add(name: String, description: Option<String>) -> Result<Todo, InternalError> {
@@ -692,7 +692,7 @@ mod data_access_layer {
 
             let todo = Todo::new(id, name, description, created_at.into(), updated_at.into());
 
-            TodoDAO::add(todo)
+            TodoModel::add(todo)
         }
 
         pub fn update(
@@ -700,7 +700,7 @@ mod data_access_layer {
             new_name: Option<String>,
             new_description: Option<String>,
         ) -> Result<Todo, InternalError> {
-            let mut todo = TodoDAO::find(id) ? ;
+            let mut todo = TodoModel::find(id) ? ;
 
             if let Some(name) = new_name {
                 todo.set_name(&name);
@@ -710,24 +710,24 @@ mod data_access_layer {
                 todo.set_description(&description);
             }
 
-            TodoDAO::update(todo)
+            TodoModel::update(todo)
         }
 
         pub fn find(id: IdType) -> Result<Todo, InternalError> {
-            TodoDAO::find(id)
+            TodoModel::find(id)
         }
 
         pub fn delete(id: IdType) -> Result<(), InternalError> {
-            TodoDAO::delete(id)
+            TodoModel::delete(id)
         }
 
         pub fn tasks(&self) -> Vec<Task> {
             let mut tasks: Vec<Task> = Vec::new();
 
-            if TodoDAO::is_table_initialized() && TaskDAO::is_table_initialized() {
+            if TodoModel::is_table_initialized() && TaskModel::is_table_initialized() {
                 let query = format!(
                     "SELECT id, what, todo_id, created_at, updated_at, completed_at FROM {} WHERE todo_id = {}",
-                    TaskDAO::table_name(), self.id()
+                    TaskModel::table_name(), self.id()
                 );
 
                 if let Ok(mut cursor) = DB.lock().unwrap().select_query(&query) {
@@ -753,12 +753,12 @@ mod data_access_layer {
         }
 
         pub fn init_table() -> Result<(), sqlite::Error> {
-            TodoDAO::init_table() ? ;
+            TodoModel::init_table() ? ;
             Ok(())
         }
     }
 
-    impl DatabaseConnector for TaskDAO {
+    impl DatabaseConnectorTrait for TaskModel {
         fn table_name() -> &'static str {
             "tasks"
         }
@@ -784,7 +784,7 @@ mod data_access_layer {
         }
     }
 
-    impl DAO for TaskDAO {
+    impl BasicDataModelTrait for TaskModel {
         type ObjType = Task;
 
         fn all() -> Vec<Self::ObjType> {
@@ -862,7 +862,7 @@ mod data_access_layer {
                 );
                 return Err(InternalError::new(&details));
             } else {
-                let todo = TodoDAO::find(*obj.todo_id()) ? ;
+                let todo = TodoModel::find(*obj.todo_id()) ? ;
 
                 let todo_id = todo.id();
                 let what = obj.what();
@@ -976,15 +976,15 @@ mod data_access_layer {
 
     impl Task {
         pub fn all() -> Vec<Task> {
-            TaskDAO::all()
+            TaskModel::all()
         }
 
         pub fn find(id: IdType) -> Result<Task, InternalError> {
-            TaskDAO::find(id)
+            TaskModel::find(id)
         }
 
         pub fn delete(id: IdType) -> Result<(), InternalError> {
-            TaskDAO::delete(id)
+            TaskModel::delete(id)
         }
 
         pub fn add(what: String, todo_id: IdType) -> Result<Task, InternalError> {
@@ -995,7 +995,7 @@ mod data_access_layer {
 
             let task = Task::new(id, todo_id, &what, created_at, updated_at, status);
 
-            TaskDAO::add(task)
+            TaskModel::add(task)
         }
 
         pub fn update(
@@ -1003,7 +1003,7 @@ mod data_access_layer {
             what_new: Option<String>,
             new_status: Option<Status>,
         ) -> Result<Task, InternalError> {
-            let mut task = TaskDAO::find(id) ? ;
+            let mut task = TaskModel::find(id) ? ;
 
             if let Some(what) = what_new {
                 task.set_what(&what);
@@ -1013,7 +1013,7 @@ mod data_access_layer {
                 task.set_status(status);
             }
 
-            TaskDAO::update(task)
+            TaskModel::update(task)
         }
 
         pub fn todo(&self) -> Result<Todo, InternalError> {
@@ -1021,8 +1021,8 @@ mod data_access_layer {
         }
 
         pub fn init_table() -> Result<(), sqlite::Error> {
-            TodoDAO::init_table() ? ;
-            TaskDAO::init_table() ? ;
+            TodoModel::init_table() ? ;
+            TaskModel::init_table() ? ;
             Ok(())
         }
     }
